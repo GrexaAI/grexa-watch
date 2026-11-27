@@ -162,7 +162,7 @@ def _handle_message(data: dict):
                     'What\'s going on?"'
                 )
             else:
-                response_text = "Thinking..."
+                response_text = "Rukja dekh raha hu maine"
                 trigger_background = True
 
             if response_text:
