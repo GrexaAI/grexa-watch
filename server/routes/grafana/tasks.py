@@ -49,7 +49,9 @@ def _extract_severity(payload: Dict[str, Any]) -> str:
     """Extract severity from Grafana alert payload.
 
     Grafana states are: alerting, ok, pending, no_data, paused
-    Severity should come from labels (e.g., severity: critical).
+    Severity should come from labels (e.g., severity: critical). Grafana label
+    values are user-defined; normalize common aliases to Aurora's four levels.
+    Warning/warn maps to high, consistent with the other alert connectors.
 
     If no severity label exists, map state to severity:
     - alerting: critical (active alert)
@@ -57,12 +59,21 @@ def _extract_severity(payload: Dict[str, Any]) -> str:
     - pending: high (about to fire)
     - no_data/paused: unknown
     """
-    # Check for severity in labels first
-    labels = payload.get("commonLabels", {}) or payload.get("labels", {})
+    # A populated commonLabels map must not hide instance-specific labels.
+    labels = {}
+    for key in ("commonLabels", "labels"):
+        if isinstance(payload.get(key), dict):
+            labels.update(payload[key])
     if "severity" in labels:
-        severity = str(labels["severity"]).lower()
+        severity = str(labels["severity"]).strip().lower()
+        severity = {
+            "warning": "high", "warn": "high",
+            "info": "low", "informational": "low",
+        }.get(severity, severity)
         if severity in ("critical", "high", "medium", "low"):
             return severity
+        logger.warning("Unrecognized Grafana severity label; preserving severity as unknown")
+        return "unknown"
 
     # Map state to severity as fallback
     state = (payload.get("state") or payload.get("status") or "").lower()
