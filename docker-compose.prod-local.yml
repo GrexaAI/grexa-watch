@@ -806,6 +806,35 @@ services:
       - QUICK_CONNECT_MG_PORT=7687
     restart: unless-stopped
 
+  mongodb-mcp:
+    image: mongodb/mongodb-mcp-server:latest
+    restart: unless-stopped
+    environment:
+      MDB_MCP_CONNECTION_STRING: ${MDB_MCP_CONNECTION_STRING}
+      MDB_MCP_DANGEROUS_HOST_BINDING: "true"
+      MDB_MCP_READ_ONLY: "true"
+      MDB_MCP_TRANSPORT: http
+      MDB_MCP_HTTP_HOST: "0.0.0.0"
+      MDB_MCP_HTTP_PORT: "3000"
+
+  grafana-mcp:
+    image: grafana/mcp-grafana:latest
+    restart: unless-stopped
+    environment:
+      GRAFANA_URL: ${GRAFANA_URL}
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ${GRAFANA_SERVICE_ACCOUNT_TOKEN}
+      MCP_GRAFANA_SERVER_TOKEN: ${MCP_GRAFANA_SERVER_TOKEN}
+    command:
+      - "-t"
+      - "streamable-http"
+      - "--address"
+      - "0.0.0.0:8000"
+      - "--allowed-hosts"
+      - "grafana-mcp:8000,localhost:8000,127.0.0.1:8000"
+      - "--enabled-tools"
+      - "datasource,prometheus,pyroscope,elasticsearch"
+      - "--disable-write"
+
 volumes:
   postgres-data:
   terraform-workdir:
