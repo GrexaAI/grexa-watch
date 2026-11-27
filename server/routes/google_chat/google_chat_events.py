@@ -148,7 +148,7 @@ def _handle_message(data: dict):
                 logger.warning(f"User {user_id} ({_mask_email(sender_email)}) lacks permission to interact with Aurora")
                 client.send_message(
                     space_name=space_name,
-                    text="You don't have permission to use Aurora. Ask an admin or editor in your organization to upgrade your role.",
+                    text="You don't have permission to use Watch. Ask an admin or editor in your organization to upgrade your role.",
                     thread_key=thread_key,
                 )
                 return jsonify({})
