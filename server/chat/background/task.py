@@ -2708,6 +2708,13 @@ def _send_response_to_google_chat(
             attribution = "\n".join(header_lines)
             formatted_message = f"{attribution}\n{formatted_message}"
 
+        frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+        if frontend_url:
+            formatted_message = _close_dangling_code_fence(formatted_message)
+            formatted_message += (
+                f"\n\n<{frontend_url}/chat?sessionId={session_id}|Open the full investigation in Watch>"
+            )
+
         client = get_chat_app_client()
         if not client:
             logger.error(f"[BackgroundChat] Could not get Google Chat client for user {user_id}")
