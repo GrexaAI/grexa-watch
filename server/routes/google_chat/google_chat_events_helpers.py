@@ -15,7 +15,7 @@ from datetime import datetime
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from flask import request as flask_request
-from connectors.google_chat_connector.events import chat_card_action
+from connectors.google_chat_connector.events import chat_card_action, extract_message_text
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,8 @@ def get_thread_messages(
 ):
     """
     Fetch messages from a Google Chat thread for context.
-    Returns list of messages in chronological order.
+    Returns the original message plus recent thread replies in chronological
+    order, using at most two bounded, server-filtered history requests.
 
     Note: The chat.bot scope cannot read message history. This function
     will return an empty list when using the service account client unless
@@ -180,20 +181,26 @@ def get_thread_messages(
     replies without previous messages context.
     """
     try:
-        messages = client.list_messages(space_name, page_size=limit)
-
-        # Filter to the thread
-        thread_messages = [
-            m for m in messages
-            if m.get("thread", {}).get("name", "").endswith(thread_key)
-            or m.get("thread", {}).get("threadKey") == thread_key
-        ]
+        if limit <= 0:
+            return []
+        # Always include the original alert, even in an old or busy thread.
+        messages = client.list_messages(
+            space_name, page_size=1, order_by="createTime asc", thread_name=thread_key,
+        )
+        if limit > 1:
+            messages += client.list_messages(
+                space_name, page_size=limit - 1, order_by="createTime desc", thread_name=thread_key,
+            )
+        thread_messages = {
+            m["name"]: m for m in messages
+            if m.get("name") and m.get("thread", {}).get("name") == thread_key
+        }
 
         formatted = []
         total_length = 0
 
-        for msg in reversed(thread_messages):
-            text = msg.get("text", "")
+        for msg in sorted(thread_messages.values(), key=lambda m: m.get("createTime", "")):
+            text = extract_message_text(msg)
             if not text.strip():
                 continue
 
@@ -210,18 +217,18 @@ def get_thread_messages(
 
             formatted.append({
                 "user": sender.get("name", "unknown"),
-                "display_name": "Aurora" if is_bot else display_name,
+                "display_name": display_name,
                 "text": text,
                 "timestamp": ts,
                 "is_bot": is_bot,
             })
             total_length += len(text)
 
-        return list(reversed(formatted))
+        return formatted
     except requests.HTTPError as e:
         status = e.response.status_code if e.response is not None else 0
         if status == 403:
-            logger.debug(f"Cannot read thread messages (chat.bot scope lacks read access): {e}")
+            logger.warning("Google Chat denied thread history access; check app scope approval and space membership")
         else:
             logger.error(f"Error fetching thread messages: {e}", exc_info=True)
         return []
@@ -247,13 +254,12 @@ def get_space_context_with_threads(
         total_length = 0
 
         for msg in messages:
-            text = msg.get("text", "").strip()
+            text = extract_message_text(msg)
             if not text:
                 continue
 
             sender = msg.get("sender", {})
-            is_bot = sender.get("type") == "BOT"
-            display_name = "Aurora" if is_bot else sender.get("displayName", "Unknown")
+            display_name = sender.get("displayName", "Unknown")
             ts = msg.get("createTime", "")
             readable_time = _format_google_timestamp(ts)
             timestamp_prefix = f"[{readable_time}] " if readable_time else ""
