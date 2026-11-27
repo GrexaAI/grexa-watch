@@ -36,6 +36,8 @@ class OpenRouterPricingService:
 
         self.fallback_pricing = {
             # OpenAI (OpenRouter pricing per 1K tokens)
+            "openai/gpt-6.1-terra": {"input": 0.001, "output": 0.005, "cached_input": 5e-05},
+            "openai/gpt-6-luna": {"input": 0.0001, "output": 0.0005, "cached_input": 1e-05},
             "openai/gpt-6-astra": {"input": 0.010, "output": 0.050},
             "openai/gpt-5.6-sol": {"input": 0.004, "output": 0.020},
             "openai/gpt-5.6-terra": {"input": 0.002, "output": 0.012},

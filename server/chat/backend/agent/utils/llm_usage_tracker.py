@@ -12,6 +12,7 @@ from .openrouter_pricing_service import get_pricing_service
 from .provider_pricing_service import get_provider_pricing_service
 from .cache_control import claude_family
 from .usage_normalizer import normalize_usage
+from chat.backend.agent.model_mapper import ModelMapper
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class LLMUsageTracker:
 
     MODEL_PRICING = {
         # OpenAI (direct API pricing per 1K tokens)
+        "openai/gpt-6.1-terra": {"input": 0.001, "output": 0.005, "cached_input": 5e-05, "cache_write": 0.00125},
+        "openai/gpt-6-luna": {"input": 0.0001, "output": 0.0005, "cached_input": 1e-05, "cache_write": 0.000125},
         # cached_input = automatic prompt caching discount
         "openai/gpt-6-astra": {"input": 0.010, "output": 0.050, "cached_input": 0.001},
         "openai/gpt-5.6-sol": {"input": 0.004, "output": 0.020, "cached_input": 0.0004},
@@ -266,6 +269,7 @@ class LLMUsageTracker:
             provider_mode = os.getenv("LLM_PROVIDER_MODE")
 
         try:
+            model_name = ModelMapper.get_openrouter_name(model_name)
             pricing = None
             # The regional premium is baked into the static list price only; dynamic
             # OpenRouter / GCP-billing rates already reflect the real per-endpoint price.
@@ -334,7 +338,13 @@ class LLMUsageTracker:
             ):
                 pricing = {k: v * 5 for k, v in pricing.items()}
 
-            # Writes are a subset of input_tokens, so cap them at what reads left over
+            # Standard OpenAI rates increase above the long-context threshold.
+            if using_static_pricing and model_name in {
+                "openai/gpt-6.1-terra", "openai/gpt-6-luna"
+            } and input_tokens > 272_000:
+                pricing = {key: rate * (1.5 if key == "output" else 2) for key, rate in pricing.items()}
+
+            # Writes are a subset of input_tokens, so cap them at what reads left over.
             cache_write_tokens = min(
                 max(cache_write_tokens, 0), max(input_tokens - cached_input_tokens, 0)
             )

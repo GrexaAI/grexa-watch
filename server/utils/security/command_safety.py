@@ -81,6 +81,8 @@ def guardrails_llm_timeout_seconds() -> int:
 
 def _lowest_openai_effort(native: str) -> str:
     # gpt-5-pro accepts only high. Later pro models accept medium.
+    if native.startswith(("gpt-6.1-", "gpt-6-luna")):
+        return "none"
     if native.startswith("gpt-5-pro"):
         return "high"
     if "-pro" in native or "chat-latest" in native:
@@ -110,7 +112,7 @@ def safety_judge_thinking_overrides(model_name: str) -> dict:
             # Gemini 4 (Carbon and Argon), 3.8 Flash, and Pro reject minimal.
             level = "low" if ("gemini-4" in native or "pro" in native or "3.8" in native) else "minimal"
             return {"thinking_level": level, "include_thoughts": False}
-    # The OpenAI provider sets effort=high, then applies kwargs, so this
+    # The OpenAI provider applies its configured effort, then kwargs, so this
     # replaces that default. gpt-4 has no reasoning parameter.
     if prefix == "openai" and not native.startswith(("gpt-3", "gpt-4")):
         return {"reasoning": {"effort": _lowest_openai_effort(native)}}
@@ -309,11 +311,11 @@ def _create_safety_llm():
 
     Model selection (first match wins):
     1. ``GUARDRAILS_LLM_MODEL`` - explicit override from config.
-    2. ``google/gemini-2.5-flash-lite`` when ``LLM_PROVIDER_MODE=openrouter`` -
+    2. ``openai/gpt-6-luna`` when ``LLM_PROVIDER_MODE=openrouter`` -
        the safety judge runs on every user message, so the default points at
        a small/cheap OpenRouter model to keep cost predictable. Operators
        who prefer a stronger judge can override via GUARDRAILS_LLM_MODEL.
-    3. ``ModelConfig.MAIN_MODEL`` - fall back to whatever the chat agent uses.
+    3. The small OpenAI model when chat uses OpenAI; otherwise MAIN_MODEL.
     """
     from chat.backend.agent.llm import ModelConfig
     from chat.backend.agent.providers import create_chat_model
@@ -321,9 +323,9 @@ def _create_safety_llm():
     if config.llm_model:
         model = config.llm_model
     elif os.getenv("LLM_PROVIDER_MODE", "").lower() == "openrouter":
-        model = "google/gemini-2.5-flash-lite"
+        model = "openai/gpt-6-luna"
     else:
-        model = ModelConfig.MAIN_MODEL
+        model = ModelConfig._SMALL_MODEL if ModelConfig.MAIN_MODEL.startswith("openai/") else ModelConfig.MAIN_MODEL
 
     base = create_chat_model(
         model,

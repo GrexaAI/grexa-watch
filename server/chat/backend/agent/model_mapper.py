@@ -10,6 +10,8 @@ The mapper supports bidirectional translation and automatic provider detection.
 
 from typing import Dict, Optional, Tuple
 
+from utils.openai_config import canonical_openai_model
+
 # Ids that appear three or more times in MODEL_MAPPINGS below — once as the canonical
 # key and again as the OpenRouter alias target of their dotted/dashed/vertex variants.
 # Named here so the literal is defined in a single place.
@@ -22,6 +24,8 @@ _OR_CLAUDE_FABLE_5_1 = "anthropic/claude-fable-5.1"
 
 # Model name mappings from OpenRouter format to native provider formats
 MODEL_MAPPINGS = {
+    "openai/gpt-6.1-terra": {"openrouter": "openai/gpt-6.1-terra", "openai": "gpt-6.1-terra", "provider": "openai"},
+    "openai/gpt-6-luna": {"openrouter": "openai/gpt-6-luna", "openai": "gpt-6-luna", "provider": "openai"},
     "openai/gpt-6-astra": {
         "openrouter": "openai/gpt-6-astra",
         "openai": "gpt-6-astra",
@@ -341,6 +345,7 @@ class ModelMapper:
         Returns:
             Model name in OpenRouter format (provider/model)
         """
+        model_name = canonical_openai_model(model_name)
         if "/" in model_name:
             # Already in OpenRouter format
             return model_name

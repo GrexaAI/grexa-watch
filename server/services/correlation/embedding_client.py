@@ -15,6 +15,7 @@ import logging
 import os
 from functools import lru_cache
 from typing import List, Optional, Tuple
+from utils.openai_config import openai_client_kwargs, openai_deployment_name
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +82,17 @@ class EmbeddingClient:
         """Call OpenAI embeddings API."""
         from openai import OpenAI
 
-        api_key = os.getenv("OPENAI_API_KEY", "").strip()
-        if not api_key:
+        config = openai_client_kwargs()
+        if not config["api_key"]:
             logger.warning("[EmbeddingClient] OPENAI_API_KEY not set")
             return None
 
         if self._client is None:
-            self._client = OpenAI(api_key=api_key)
+            self._client = OpenAI(**config)
 
         response = self._client.embeddings.create(
             input=text,
-            model=self.model,
+            model=openai_deployment_name(self.model),
         )
         return response.data[0].embedding
 

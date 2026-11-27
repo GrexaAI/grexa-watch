@@ -38,50 +38,28 @@ class ModelConfig:
     Change these values to switch providers across the entire application.
     """
     
-    # Opus 5.5 rejects a forced tool_choice, which Trigger RCA and /action pin on their
-    # first turn. ForceToolChoice detects that rejection and retries with tool_choice=auto
-    # plus an explicit prompt directive, so both flows still reach their tool.
-    _DEFAULT_MODEL = "anthropic/claude-opus-5.5"
+    _DEFAULT_MODEL = "openai/gpt-6.1-terra"
+    _SMALL_MODEL = "openai/gpt-6-luna"
 
-    # Primary models - configurable via env vars
     MAIN_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-    VISION_MODEL = os.getenv("VISION_MODEL") or os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-
-    # Background RCA model - configurable via RCA_MODEL env var, falls back to cost-based selection
-    RCA_MODEL = os.getenv("RCA_MODEL") or (
-        "anthropic/claude-haiku-5.5" if os.getenv("RCA_OPTIMIZE_COSTS", "true").lower() == "true"
-        else _DEFAULT_MODEL
-    )
-    # Yes/no per Jira ticket. Unset uses the resolved RCA model, which is opus when cost optimization is off.
-    JIRA_RCA_JUDGE_MODEL = os.getenv("JIRA_RCA_JUDGE_MODEL") or RCA_MODEL
-
-    # Multi-agent RCA orchestrator — required when ORCHESTRATOR_ENABLED=true.
-    # No fallback to MAIN_MODEL/RCA_MODEL: must be set explicitly.
-    RCA_ORCHESTRATOR_MODEL = os.getenv("RCA_ORCHESTRATOR_MODEL") or None  # triage + synthesis
-    RCA_SUBAGENT_MODEL = os.getenv("RCA_SUBAGENT_MODEL") or None          # sub-agents
-
-    # Summarization models - configurable via env vars, fall back to MAIN_MODEL
-    INCIDENT_REPORT_SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL") or os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-    TOOL_OUTPUT_SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL") or os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-
-    # Visualization extraction model
-    VISUALIZATION_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-
-    # Suggestion extraction
-    SUGGESTION_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-
-    # Email report generation
-    EMAIL_REPORT_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
-
-    # Root-cause recurrence detection agent — falls back to MAIN_MODEL
-    RECURRENCE_AGENT_MODEL = os.getenv("RECURRENCE_AGENT_MODEL") or os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
+    VISION_MODEL = os.getenv("VISION_MODEL") or "openai/gpt-6.1-terra"
+    RCA_MODEL = os.getenv("RCA_MODEL") or _DEFAULT_MODEL
+    JIRA_RCA_JUDGE_MODEL = os.getenv("JIRA_RCA_JUDGE_MODEL") or _SMALL_MODEL
+    RCA_ORCHESTRATOR_MODEL = os.getenv("RCA_ORCHESTRATOR_MODEL") or _DEFAULT_MODEL
+    RCA_SUBAGENT_MODEL = os.getenv("RCA_SUBAGENT_MODEL") or "openai/gpt-6.1-terra"
+    INCIDENT_REPORT_SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL") or _SMALL_MODEL
+    TOOL_OUTPUT_SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL") or _SMALL_MODEL
+    VISUALIZATION_MODEL = MAIN_MODEL
+    SUGGESTION_MODEL = os.getenv("ENRICHMENT_MODEL") or _SMALL_MODEL
+    EMAIL_REPORT_MODEL = INCIDENT_REPORT_SUMMARIZATION_MODEL
+    RECURRENCE_AGENT_MODEL = os.getenv("RECURRENCE_AGENT_MODEL") or _SMALL_MODEL
 
     # Small models the active provider can call. The selector used to read
     # only the newest 200 memories, so the rest of a large bank never reached it.
     _SELECTOR_FLASH_LITE = "google/gemini-3.5-flash-lite"
     _SELECTOR_VERTEX_FLASH_LITE = "vertex/gemini-3.5-flash-lite"
     _SELECTOR_HAIKU = "anthropic/claude-haiku-5.5"
-    _SELECTOR_OPENAI = "openai/gpt-5.6-luna"
+    _SELECTOR_OPENAI = "openai/gpt-6-luna"
 
     @staticmethod
     def memory_selector_model() -> str:
@@ -92,8 +70,9 @@ class ModelConfig:
             return override
 
         mode = (os.getenv("LLM_PROVIDER_MODE") or "direct").strip().lower()
-        # Flash-lite is the current small Gemini, and both of these providers can call it.
-        if mode in ("openrouter", "google"):
+        if mode == "openrouter":
+            return ModelConfig._SELECTOR_OPENAI
+        if mode == "google":
             return ModelConfig._SELECTOR_FLASH_LITE
         # Vertex ids use a different prefix.
         if mode == "vertex":
@@ -106,7 +85,7 @@ class ModelConfig:
             return ModelConfig._SELECTOR_HAIKU
 
         # direct/auto: follow MAIN_MODEL's provider so a second API key isn't required.
-        main = (os.getenv("MAIN_MODEL") or "").strip()
+        main = (os.getenv("MAIN_MODEL") or ModelConfig.MAIN_MODEL).strip()
         # Ollama only serves a model the operator installed. Haiku is not one of them.
         if mode == "ollama" or main.startswith("ollama/"):
             return main

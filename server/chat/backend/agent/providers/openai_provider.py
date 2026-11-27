@@ -10,6 +10,7 @@ import os
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
+from utils.openai_config import openai_client_kwargs, openai_deployment_name
 
 from .base_provider import BaseLLMProvider
 from ..model_mapper import ModelMapper
@@ -22,8 +23,8 @@ class OpenAIProvider(BaseLLMProvider):
 
     def __init__(self):
         super().__init__()
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        # OpenAI uses their default base URL (no need to specify)
+        self.client_config = openai_client_kwargs()
+        self.api_key = self.client_config["api_key"]
 
     def get_chat_model(
         self,
@@ -58,9 +59,9 @@ class OpenAIProvider(BaseLLMProvider):
         logger.info(f"Creating OpenAI chat model: {native_model}")
 
         config = {
-            "model": native_model,
+            **self.client_config,
+            "model": openai_deployment_name(native_model),
             "temperature": temperature,
-            "openai_api_key": self.api_key,
             "request_timeout": 120.0,
             "max_retries": 3,
             "stream_usage": True,
@@ -73,11 +74,20 @@ class OpenAIProvider(BaseLLMProvider):
         # surfaces reasoning summaries to the streaming output so they
         # flow into the ThoughtsPanel / sub-agent panes during RCA.
         if self._supports_reasoning(native_model):
-            config["reasoning"] = {"effort": "high", "summary": "auto"}
+            effort = os.getenv("OPENAI_REASONING_EFFORT", "low").strip().lower() or "low"
+            if effort not in {"none", "minimal", "low", "medium", "high", "xhigh", "max"}:
+                logger.error("Invalid OpenAI reasoning effort configuration")
+                raise ValueError("Invalid OPENAI_REASONING_EFFORT")
+            # Legacy reasoning models reject the newer low/none levels.
+            if native_model.startswith("gpt-5-pro"):
+                effort = "high"
+            elif "-pro" in native_model or "chat-latest" in native_model:
+                effort = "medium" if effort in {"none", "minimal", "low"} else effort
+            config["reasoning"] = {"effort": effort, "summary": "auto"}
             config["use_responses_api"] = True
             config.pop("temperature", None)
             logger.info(
-                f"Enabled reasoning=high+summary=auto + use_responses_api=True for {native_model}"
+                "Enabled OpenAI Responses API for model %s with reasoning effort %s", native_model, effort
             )
 
 

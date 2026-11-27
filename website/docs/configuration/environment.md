@@ -223,10 +223,14 @@ At least one LLM provider API key is required. See [LLM Providers](/docs/integra
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENROUTER_API_KEY` | - | OpenRouter API key (recommended) |
-| `OPENAI_API_KEY` | - | OpenAI API key |
+| `OPENAI_API_KEY` | - | OpenAI project key or Azure resource key |
+| `OPENAI_BASE_URL` | SDK default | Optional Azure v1 endpoint; see [OpenAI/Azure setup](./openai-azure.md) |
+| `OPENAI_API_BASE` | - | Legacy base URL alias; `OPENAI_BASE_URL` wins |
+| `OPENAI_DEPLOYMENTS` | - | JSON map of native model IDs to Azure deployment names |
+| `OPENAI_REASONING_EFFORT` | `low` | OpenAI reasoning effort; supported minimums depend on model |
 | `ANTHROPIC_API_KEY` | - | Anthropic API key |
 | `GOOGLE_AI_API_KEY` | - | Google AI API key |
-| `LLM_PROVIDER_MODE` | `openrouter` | Provider routing mode (see below) |
+| `LLM_PROVIDER_MODE` | `direct` | Provider routing mode (see below) |
 | `AGENT_RECURSION_LIMIT` | `240` | Max agent reasoning steps |
 | `INVESTIGATION_TIMEOUT_SECONDS` | `3600` | Wall-clock limit for one investigation, in seconds. Default is one hour. Clamped to 120–10800. Requires a process restart. On Kubernetes the chart raises the worker termination grace and the nginx proxy timeouts to at least this value. |
 
@@ -241,7 +245,7 @@ Controls how Aurora routes LLM requests:
 | `auto` | Same behaviour as `direct`. | Provider-specific key(s) |
 | _provider name_ | Set to a provider such as `bedrock`, `vertex`, `anthropic`, `openai`, `google`, or `ollama` to route **every** model selection through that provider (clean model picks are translated to its native id). Models the provider can't serve fall back to their own native provider. | That provider's config |
 
-`openrouter` is recommended for most deployments — a single key, broadest model selection, and no need to manage multiple provider accounts.
+This fork defaults to direct OpenAI. Azure OpenAI uses the same provider with its v1 endpoint and resource key; see [OpenAI and Azure OpenAI](./openai-azure.md).
 
 ```bash
 # Use one of these
@@ -250,7 +254,7 @@ OPENAI_API_KEY=sk-your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
 GOOGLE_AI_API_KEY=your-key
 
-LLM_PROVIDER_MODE=openrouter   # or: direct
+LLM_PROVIDER_MODE=direct   # or: openrouter
 AGENT_RECURSION_LIMIT=240
 INVESTIGATION_TIMEOUT_SECONDS=3600
 ```
@@ -321,15 +325,17 @@ MAIN_MODEL=anthropic/claude-sonnet-5    # auto-translated to us.anthropic.claude
 
 ### AI Features
 
+See [the complete model-role defaults](./openai-azure.md#model-roles), including main, vision, summaries, enrichment, and recurrence.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RCA_MODEL` | - | Model for background RCA (format: `provider/model`). Overrides `RCA_OPTIMIZE_COSTS` when set. Default RCA path when `ORCHESTRATOR_ENABLED=false`. |
-| `MEMORY_SELECTOR_MODEL` | _(provider fast model)_ | Model that picks which memories to inject. It has about 6 seconds. The loader used to return only the newest 200 memories. Unset uses a fast model the active provider can serve: Gemini 3.5 Flash-Lite (Google/OpenRouter/Vertex), Haiku 5.5 (Anthropic and `LLM_PROVIDER_MODE=bedrock`), or GPT-5.6 Luna (OpenAI). Ollama uses `MAIN_MODEL` when that id is `ollama/...`. A Bedrock gateway (`direct` mode, `MAIN_MODEL=bedrock/<id>`) stays on that id; pin a fast one with `bedrock/<id>`. |
-| `JIRA_RCA_JUDGE_MODEL` | `RCA_MODEL` | Yes/no model for Jira automatic RCA. Unset uses the resolved `RCA_MODEL`. |
-| `RCA_OPTIMIZE_COSTS` | `true` | Only used when `RCA_MODEL` is not set. `true` = `anthropic/claude-haiku-5.5`, `false` = `anthropic/claude-opus-5.5` |
+| `RCA_MODEL` | `openai/gpt-6.1-terra` | Model for background RCA; used when `ORCHESTRATOR_ENABLED=false`. |
+| `MEMORY_SELECTOR_MODEL` | _(provider fast model)_ | Model that picks which memories to inject. It has about 6 seconds. The loader used to return only the newest 200 memories. Unset uses a fast model the active provider can serve: Gemini 3.5 Flash-Lite (Google/OpenRouter/Vertex), Haiku 5.5 (Anthropic and `LLM_PROVIDER_MODE=bedrock`), or GPT-6 Luna (OpenAI). Ollama uses `MAIN_MODEL` when that id is `ollama/...`. A Bedrock gateway (`direct` mode, `MAIN_MODEL=bedrock/<id>`) stays on that id; pin a fast one with `bedrock/<id>`. |
+| `JIRA_RCA_JUDGE_MODEL` | `openai/gpt-6-luna` | Yes/no model for Jira automatic RCA. |
+| `RCA_OPTIMIZE_COSTS` | Legacy | No longer selects the investigator in this fork; set `RCA_MODEL` explicitly. |
 | `ORCHESTRATOR_ENABLED` | `false` | Multi-agent RCA orchestrator (opt-in). When `true`, a lead orchestrator triages each background RCA and may fan out parallel read-only sub-agents; `RCA_MODEL` is ignored. When `false` (default), RCA uses the single-agent path with `RCA_MODEL`. |
-| `RCA_ORCHESTRATOR_MODEL` | - | *Only when `ORCHESTRATOR_ENABLED=true`.* Brain model for triage + synthesis. Format: `provider/model`. |
-| `RCA_SUBAGENT_MODEL` | - | *Only when `ORCHESTRATOR_ENABLED=true`.* Sub-agent investigator model. Per-role overrides in `orchestrator/roles/*.md` frontmatter take precedence. Format: `provider/model`. |
+| `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.1-terra` | *Only when `ORCHESTRATOR_ENABLED=true`.* Brain model for triage + synthesis. Format: `provider/model`. |
+| `RCA_SUBAGENT_MODEL` | `openai/gpt-6.1-terra` | *Only when `ORCHESTRATOR_ENABLED=true`.* Sub-agent investigator model. Per-role overrides in `orchestrator/roles/*.md` frontmatter take precedence. Format: `provider/model`. |
 | `GEMINI_DISABLE_THINKING` | - | Disable Gemini thinking mode |
 
 ### AI Safety Guardrails
@@ -339,7 +345,7 @@ Three-layer safety: input rail + signature matcher + LLM safety judge. See [Comm
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GUARDRAILS_ENABLED` | `true` | Master switch. When enabled (default), all three layers run and every LLM check fails closed on error. Set to `false` to disable all guardrails. |
-| `GUARDRAILS_LLM_MODEL` | _(MAIN_MODEL)_ | Model used by the safety judge and input rail. Same format and routing as `MAIN_MODEL`. |
+| `GUARDRAILS_LLM_MODEL` | `openai/gpt-6-luna` | Model used by the safety judge and input rail. Same format and routing as `MAIN_MODEL`. |
 | `GUARDRAILS_DISABLE_THINKING` | `true` | Shorten the safety judge. Gemini 3.6 Flash uses `minimal`; Gemini 3.8 Flash, Pro, and Argon use `low` (`minimal` is rejected). Gemini 2.5 Flash uses a budget of 0; 2.5 Pro uses 128. GPT-5 and the o-series use reasoning effort `low`; `gpt-5.5-pro` uses `medium`. Haiku 4.5 and 5.5 get thinking disabled (Opus rejects that field). Ollama and OpenRouter only get it for weights that advertise a think switch (`qwen3`, `deepseek-r1`, `qwq`, `gpt-oss`, `magistral`); a plain Llama is left alone because Ollama returns 400 otherwise. Set to `false` to leave the model on its default. Requires a restart. |
 | `GUARDRAILS_LLM_TIMEOUT_SECONDS` | `10` | Seconds the safety judge may run before the command is blocked. Clamped to 5–60. |
 | `GUARDRAILS_SIGMA_ENABLED` | `true` | Gates the vendored SigmaHQ rule corpus inside the signature matcher. Requires `GUARDRAILS_ENABLED=true`. Set to `false` to run only hand-written rules. |

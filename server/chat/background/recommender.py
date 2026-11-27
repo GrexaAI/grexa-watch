@@ -49,7 +49,7 @@ _CODE_TOOLS = frozenset({
 
 _VALID_TYPES = frozenset({"mitigation", "diagnostic", "remediate", "prevent"})
 _VALID_RISKS = frozenset({"safe", "low", "medium", "high"})
-_ENRICHMENT_MODEL = os.environ.get("ENRICHMENT_MODEL", "anthropic/claude-haiku-5.5")
+_ENRICHMENT_MODEL = (os.environ.get("ENRICHMENT_MODEL") or "openai/gpt-6-luna")
 
 _TYPE_SORT_ORDER = {"mitigation": 0, "diagnostic": 1, "remediate": 2, "prevent": 3}
 

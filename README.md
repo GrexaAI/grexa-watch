@@ -146,6 +146,11 @@ Visualize your entire infrastructure as a dependency graph. When an incident occ
 
 ## Quick Start
 
+This fork uses OpenAI-only model defaults: GPT-6.1 Terra for investigations and
+vision, and GPT-6 Luna for reports, summaries, and utility tasks. Both direct OpenAI and
+Azure OpenAI v1 API-key deployments are supported. See the
+[model roles, Azure setup, and custom-image deployment guide](website/docs/configuration/openai-azure.md).
+
 Get Aurora running locally in under 5 minutes:
 
 ```bash
