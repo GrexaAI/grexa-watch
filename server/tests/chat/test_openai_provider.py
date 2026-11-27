@@ -160,10 +160,11 @@ def test_missing_key_fails_before_creating_model(openai_provider_module, monkeyp
 
 
 @pytest.mark.skipif(not isinstance(RealChatOpenAI, type), reason="optional real SDK compatibility test")
-def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypatch):
+@pytest.mark.parametrize("model_id,coding", [("gpt-6.1-terra", False), ("gpt-6.1-sol", True)])
+def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypatch, model_id, coding):
     """Exercise actual LangChain/OpenAI serialization without network or paid calls."""
     monkeypatch.setenv("OPENAI_BASE_URL", "https://example.openai.azure.com/openai/v1/")
-    monkeypatch.setenv("OPENAI_DEPLOYMENTS", '{"gpt-6.1-terra":"prod-terra"}')
+    monkeypatch.setenv("OPENAI_DEPLOYMENTS", json.dumps({model_id: "prod-model"}))
     monkeypatch.setattr(openai_provider_module, "ChatOpenAI", RealChatOpenAI)
     for name, module in _SDK_MODULES.items():
         if module is not None:
@@ -174,7 +175,7 @@ def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypa
         captured.append(request)
         return httpx.Response(200, json={
             "id": "resp_test", "object": "response", "created_at": 1,
-            "status": "completed", "model": "gpt-6.1-terra",
+            "status": "completed", "model": model_id,
             "output": [{"id": "msg_test", "type": "message", "role": "assistant",
                         "status": "completed", "content": [{"type": "output_text", "text": "Ready", "annotations": []}]}],
             "usage": {"input_tokens": 10, "output_tokens": 2, "total_tokens": 12},
@@ -182,7 +183,8 @@ def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypa
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         llm = openai_provider_module.OpenAIProvider().get_chat_model(
-            "openai/gpt-6.1-terra", http_client=client
+            "openai/" + model_id, http_client=client,
+            **({"reasoning": {"effort": "medium", "summary": "auto"}, "max_tokens": 12000} if coding else {}),
         )
         llm.bind_tools([{
             "name": "query_counts", "description": "Read aggregate counts",
@@ -192,8 +194,10 @@ def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypa
     assert str(captured[0].url) == "https://example.openai.azure.com/openai/v1/responses"
     assert captured[0].headers["Authorization"] == "Bearer test-key"
     payload = json.loads(captured[0].content)
-    assert payload["model"] == "prod-terra"
-    assert payload["reasoning"]["effort"] == "low"
+    assert payload["model"] == "prod-model"
+    assert payload["reasoning"]["effort"] == ("medium" if coding else "low")
+    if coding:
+        assert payload["max_output_tokens"] == 12000
     assert payload["tools"][0]["name"] == "query_counts"
     assert payload["tools"][0]["type"] == "function"
     assert "temperature" not in payload

@@ -23,6 +23,7 @@ iac_tool = run_iac_tool
 from .github_commit_tool import github_commit, GitHubCommitArgs
 from .github_rca_tool import github_rca, GitHubRCAArgs
 from .github_fix_tool import github_fix, GitHubFixArgs
+from .generate_code_tool import generate_code, GenerateCodeArgs
 from .github_repos_tool import get_connected_repos, GetConnectedReposArgs
 from .list_clusters_tool import get_connected_clusters, GetConnectedClustersArgs
 from utils.auth.github_auth_router import is_github_connected
@@ -1420,6 +1421,9 @@ Once you identify which account has the issue, pass account_id (e.g. 'account') 
         # (web_search, "web_search"),  # Moved to dedicated registration below with explicit args_schema
     ]
 
+    if not is_pr_review:
+        tool_functions.append((generate_code, "generate_code"))
+
     # Cloud provider tools (only if at least one provider is connected)
     # PR review is read-only: exclude exec/write tools.
     if any(_open(p) for p in get_connected_providers(user_id)) and not is_pr_review:
@@ -1564,7 +1568,7 @@ Once you identify which account has the issue, pass account_id (e.g. 'account') 
             effective_func = _github_rca_pinned
 
         # Apply forced context wrapper for critical tools that should never have parameters mixed up
-        if name in ['iac_tool', 'github_commit', 'github_fix']:
+        if name in ['iac_tool', 'github_commit', 'github_fix', 'generate_code']:
             context_wrapped = with_forced_context(effective_func)
             logging.info(f"Applied with_forced_context decorator to {name}")
         else:
@@ -1585,7 +1589,11 @@ Once you identify which account has the issue, pass account_id (e.g. 'account') 
         final_func.__name__ = name
             
         # Create StructuredTool with proper args_schema for tools with complex parameters
-        if name == 'github_commit':
+        if name == 'generate_code':
+            tool = StructuredTool.from_function(
+                func=final_func, name=name, description=generate_code.__doc__, args_schema=GenerateCodeArgs,
+            )
+        elif name == 'github_commit':
             tool = StructuredTool.from_function(
                 func=final_func,
                 name=name,

@@ -78,6 +78,7 @@ class ModelCutoffManager:
         # Dates are the "knowledge cutoff" published on each model's page at
         # developers.openai.com/api/docs/models/<id> — verified, not inferred.
         openai_models = {
+            "openai/gpt-6.1-sol": ModelInfo("gpt-6.1-sol", "openai", cutoff_date(2026, 4, 30), True, True),
             "openai/gpt-6.1-terra": ModelInfo("gpt-6.1-terra", "openai", cutoff_date(2026, 6, 1), True, True),
             "openai/gpt-6-luna": ModelInfo("gpt-6-luna", "openai", cutoff_date(2026, 5, 18), True, True),
             # developers.openai.com/api/docs/models — "Knowledge cutoff Apr 30, 2026"
