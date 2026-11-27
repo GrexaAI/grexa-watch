@@ -30,7 +30,7 @@ interface EnvCheckResult {
   baseUrl: string;
 }
 
-const DOCS_URL = "https://arvo-ai.github.io/aurora/docs/integrations/connectors#google-chat";
+const DOCS_URL = "https://github.com/GrexaAI/grexa-watch/blob/main/website/docs/integrations/connectors.md#google-chat";
 
 export default function GoogleChatSetupPage() {
   const router = useRouter();
@@ -181,7 +181,9 @@ export default function GoogleChatSetupPage() {
 
   const envVarSnippet = `GOOGLE_CHAT_CLIENT_ID=your-client-id
 GOOGLE_CHAT_CLIENT_SECRET=your-client-secret
-GOOGLE_CHAT_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'`;
+GOOGLE_CHAT_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'
+# Workspace add-ons: managed Service account email from Chat API Configuration
+GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL=`;
 
   // Show explicit error instead of rendering invalid relative OAuth URLs
   const baseUrl = envCheck?.baseUrl?.trim() ?? '';
@@ -268,6 +270,19 @@ GOOGLE_CHAT_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'`;
               </a>
 
               {/* URLs to copy */}
+              <p className="text-xs text-white/60">
+                If your Chat app is a Workspace add-on, keep that setting enabled and use a common
+                HTTP endpoint for all triggers. Copy its managed Service account email into{' '}
+                <code>GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL</code>.{' '}
+                <a
+                  href="https://github.com/GrexaAI/grexa-watch/blob/main/website/docs/integrations/google-chat-addon.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-300"
+                >
+                  Add-on setup instructions
+                </a>
+              </p>
               <div className="bg-white/5 rounded-lg p-4 border border-white/10 space-y-4 text-sm">
                 <p className="text-white/90 font-medium">
                   Your URLs

@@ -335,6 +335,10 @@ config:
   NEXT_PUBLIC_WEBSOCKET_URL: ""  # Example: wss://ws.aurora.example.com
   FRONTEND_URL: ""               # Example: https://aurora.example.com
   
+  # Google Chat incoming add-on identity (non-secret). Blank = classic Chat app.
+  # Copy the managed Service account email from Chat API > Connection settings.
+  GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL: ""
+
   # --- Internal Service URLs ---
   BACKEND_URL: ""             # Auto-generated if empty: http://<release>-server:5080
   CHATBOT_INTERNAL_URL: ""    # Auto-generated if empty: http://<release>-chatbot:5007

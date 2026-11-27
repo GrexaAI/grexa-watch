@@ -511,6 +511,7 @@ SLACK_APP_TOKEN=
 | `GOOGLE_CHAT_CLIENT_ID` | OAuth client ID (used during setup to create the incidents space in the customer's workspace) |
 | `GOOGLE_CHAT_CLIENT_SECRET` | OAuth client secret |
 | `GOOGLE_CHAT_SERVICE_ACCOUNT_KEY` | JSON key for the Chat app service account (messages appear as "Aurora") |
+| `GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL` | Optional managed incoming-event identity copied from Chat API Configuration. Set for Workspace add-ons; leave empty for classic apps. Distinct from the messaging key's service account. |
 
 ```bash
 GOOGLE_CHAT_CLIENT_ID=your-client-id
