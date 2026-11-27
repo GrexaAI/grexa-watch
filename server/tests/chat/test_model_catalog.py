@@ -134,17 +134,9 @@ def test_no_priced_anthropic_or_openai_model_is_hidden(picker_ids):
 # Current-generation ids this PR introduced. Deliberately explicit: MODEL_PRICING also
 # holds legacy rows kept for costing historical usage, which must NOT be in the picker.
 _CURRENT_GENERATION = {
-    "anthropic/claude-fable-5.1",
-    "anthropic/claude-fable-5",
-    "anthropic/claude-opus-5.5",
-    "anthropic/claude-sonnet-5",
-    "anthropic/claude-haiku-5.5",
-    "openai/gpt-6-astra",
-    "openai/gpt-5.6-sol",
-    "openai/gpt-5.6-terra",
-    "openai/gpt-5.6-luna",
-    "google/gemini-3.8-flash",
-    "google/gemini-4-argon",
+    "openai/gpt-6.2-sol",
+    "openai/gpt-6.1-terra",
+    "openai/gpt-6-luna",
 }
 
 
@@ -162,6 +154,38 @@ def test_default_model_is_fully_registered():
     assert default in ChatContextManager.MODEL_CONTEXT_LIMITS
     assert default in ModelCutoffManager().models
     assert default in _picker_ids(), "default model must be selectable in the picker"
+
+
+def test_fork_picker_contains_only_recommended_openai_models(picker_ids):
+    """Historical provider/pricing entries remain, but the fork exposes three models."""
+    assert set(picker_ids) == _CURRENT_GENERATION
+
+
+def test_all_default_model_roles_are_registered_openai_models():
+    """Utility/background calls must not require another vendor's credentials."""
+    roles = (
+        "MAIN_MODEL", "VISION_MODEL", "RCA_MODEL", "JIRA_RCA_JUDGE_MODEL",
+        "RCA_ORCHESTRATOR_MODEL", "RCA_SUBAGENT_MODEL",
+        "INCIDENT_REPORT_SUMMARIZATION_MODEL", "TOOL_OUTPUT_SUMMARIZATION_MODEL",
+        "VISUALIZATION_MODEL", "SUGGESTION_MODEL", "EMAIL_REPORT_MODEL",
+        "RECURRENCE_AGENT_MODEL",
+    )
+    for role in roles:
+        assert getattr(ModelConfig, role) in _CURRENT_GENERATION, role
+    assert ModelConfig.memory_selector_model() == "openai/gpt-6-luna"
+
+
+def test_azure_alias_uses_canonical_pricing(monkeypatch):
+    """An Azure deployment must not fall back to the unknown-model price."""
+    monkeypatch.setenv("OPENAI_DEPLOYMENTS", '{"gpt-6.1-terra":"prod-terra"}')
+    assert ModelMapper.get_openrouter_name("prod-terra") == "openai/gpt-6.1-terra"
+    assert LLMUsageTracker.calculate_cost(1000, 1000, "prod-terra", use_dynamic_pricing=False) == 0.006
+
+
+def test_new_model_long_context_and_cache_pricing():
+    """Long prompts and cache reads use their documented price tiers."""
+    assert LLMUsageTracker.calculate_cost(1000, 1000, "openai/gpt-6.1-terra", use_dynamic_pricing=False, cached_input_tokens=1000) == 0.00505
+    assert LLMUsageTracker.calculate_cost(300000, 1000, "openai/gpt-6.1-terra", use_dynamic_pricing=False) == 0.6075
 
 
 def test_models_that_reject_forcing_have_a_middleware_fallback():
@@ -201,6 +225,9 @@ def test_gpt56_cutoffs_match_openai_published_date():
 # Anthropic and Google publish two numbers for some models; we pin the one the code
 # uses so a future bump has to be deliberate.
 _PUBLISHED_CUTOFFS = {
+    "openai/gpt-6.2-sol": (2026, 6, 1),
+    "openai/gpt-6.1-terra": (2026, 6, 1),
+    "openai/gpt-6-luna": (2026, 5, 18),
     "openai/gpt-6-astra": (2026, 4, 30),
     "openai/gpt-5.5": (2025, 12, 1),
     "openai/gpt-5.2": (2025, 8, 31),

@@ -18,6 +18,11 @@ def test_timeout_defaults_to_10_seconds():
     assert guardrails_llm_timeout_seconds() == 10
 
 
+@pytest.mark.parametrize("model,effort", [("gpt-6-luna", "none"), ("gpt-6.1-terra", "none"), ("gpt-6.2-sol", "low")])
+def test_openai_judge_uses_model_supported_minimum(model, effort):
+    assert safety_judge_thinking_overrides("openai/" + model) == {"reasoning": {"effort": effort}}
+
+
 def test_timeout_accepts_a_client_value(monkeypatch):
     monkeypatch.setenv("GUARDRAILS_LLM_TIMEOUT_SECONDS", " 20 ")
     assert guardrails_llm_timeout_seconds() == 20

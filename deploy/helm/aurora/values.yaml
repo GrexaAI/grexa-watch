@@ -357,7 +357,16 @@ config:
   AWS_SM_SECRET_ACCESS_KEY: ""  # Falls back to default boto3 chain if both are empty
   
   # --- LLM Configuration ---
-  LLM_PROVIDER_MODE: "openrouter"  #Provider: openrouter, openai, anthropic, google
+  LLM_PROVIDER_MODE: "direct"
+  # Blank uses OpenAI. Azure: https://RESOURCE.openai.azure.com/openai/v1/
+  OPENAI_BASE_URL: ""
+  OPENAI_API_BASE: ""  # legacy alias; prefer OPENAI_BASE_URL
+  # JSON mapping native model IDs to Azure deployment names, including embeddings.
+  OPENAI_DEPLOYMENTS: ""
+  OPENAI_REASONING_EFFORT: "low"
+  MAIN_MODEL: "openai/gpt-6.2-sol"
+  RCA_MODEL: "openai/gpt-6.2-sol"
+  VISION_MODEL: "openai/gpt-6.1-terra"
   AGENT_RECURSION_LIMIT: "240" #Maximum number of steps an agent can take
   # Wall-clock limit for one investigation, in seconds. Default is one hour.
   # Clamped to 120–10800. Worker grace and nginx proxy timeouts follow this.
@@ -374,8 +383,8 @@ config:
   # Gate the vendored SigmaHQ rule corpus inside the signature matcher.
   # Requires GUARDRAILS_ENABLED=true. Set to "false" to run only hand-written rules.
   GUARDRAILS_SIGMA_ENABLED: "true"
-  # Safety judge / input rail model (provider/model format). Empty = use MAIN_MODEL.
-  GUARDRAILS_LLM_MODEL: ""
+  # Safety judge / input rail model (provider/model format). Empty = the small OpenAI default.
+  GUARDRAILS_LLM_MODEL: "openai/gpt-6-luna"
   # On by default. 3.6 Flash uses minimal; 3.8 Flash, Pro, and Argon use low.
   # 2.5 Flash uses budget 0; 2.5 Pro uses 128. GPT-5 and o-series use effort
   # low; gpt-5.5-pro uses medium. Set false for the model default. Haiku, and
@@ -440,16 +449,16 @@ config:
   # Infrastructure visualization LLM extraction (disabled for cost; see cost-optimization design doc).
   VISUALIZATION_ENABLED: "false"
   # * Only when ORCHESTRATOR_ENABLED=true — triage + synthesis brain.
-  RCA_ORCHESTRATOR_MODEL: ""
+  RCA_ORCHESTRATOR_MODEL: "openai/gpt-6.2-sol"
   # * Only when ORCHESTRATOR_ENABLED=true — sub-agent investigator model.
-  RCA_SUBAGENT_MODEL: ""
-  # Lightweight model for mechanical summarization (tool-output capping, alert/repo summaries). Empty = falls back to MAIN_MODEL.
-  SUMMARIZATION_MODEL: ""
-  # Model used by the Next Steps enrichment pass (rationale, undo commands, safety labels). Empty = falls back to MAIN_MODEL.
-  ENRICHMENT_MODEL: ""
+  RCA_SUBAGENT_MODEL: "openai/gpt-6.1-terra"
+  # Lightweight model for mechanical summarization (tool-output capping, alert/repo summaries). Empty = the small OpenAI default.
+  SUMMARIZATION_MODEL: "openai/gpt-6-luna"
+  # Model used by the Next Steps enrichment pass (rationale, undo commands, safety labels). Empty = the small OpenAI default.
+  ENRICHMENT_MODEL: "openai/gpt-6-luna"
   # Memory selector. Empty = a small model the active provider can serve.
   # The loader used to return only the newest 200 memories.
-  MEMORY_SELECTOR_MODEL: ""
+  MEMORY_SELECTOR_MODEL: "openai/gpt-6-luna"
   # Root-cause recurrence detection (dedup layer 1): off | shadow | live.
   # Defaults to "live" (folding on). Set to "off" to disable, or "shadow" to
   # log verdicts without folding.
@@ -459,10 +468,10 @@ config:
   # Wall-clock budget (seconds) for one recurrence check; keep well under the
   # summarization task's soft time limit (330s) minus summary work.
   RECURRENCE_AGENT_TIMEOUT_SECONDS: "120"
-  # Model for the recurrence agent. Empty = falls back to MAIN_MODEL.
-  RECURRENCE_AGENT_MODEL: ""
-  # Yes/no model for Jira automatic RCA. Empty = falls back to the resolved RCA_MODEL.
-  JIRA_RCA_JUDGE_MODEL: ""
+  # Model for the recurrence agent. Empty = the small OpenAI default.
+  RECURRENCE_AGENT_MODEL: "openai/gpt-6-luna"
+  # Yes/no model for Jira automatic RCA. Empty = the small OpenAI default.
+  JIRA_RCA_JUDGE_MODEL: "openai/gpt-6-luna"
 
   # --- AWS Bedrock (non-secret config; credentials live in secrets.llm) ---
   # Gateway mode: set BEDROCK_BASE_URL to an OpenAI-compatible endpoint in front of

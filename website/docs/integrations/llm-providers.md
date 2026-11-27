@@ -4,6 +4,12 @@ sidebar_position: 2
 
 # LLM Providers
 
+This fork defaults to OpenAI models and exposes only the recommended OpenAI
+choices in the chat picker. For model roles, low-cost reasoning settings, and Azure
+OpenAI API-key configuration, see [OpenAI and Azure OpenAI](../configuration/openai-azure.md).
+The other provider adapters below remain available for explicit environment
+overrides and existing sessions; the upstream examples are not this fork's defaults.
+
 Aurora requires an LLM provider for its AI-powered investigation and Root Cause Analysis (RCA) capabilities. You can use a single gateway like OpenRouter, connect directly to individual providers, or run models locally with Ollama.
 
 ## Supported Providers
@@ -24,7 +30,7 @@ Only **one** provider is required.
 
 Aurora supports three routing modes, controlled by `LLM_PROVIDER_MODE`:
 
-### OpenRouter Mode (default)
+### OpenRouter Mode (optional)
 
 Routes all LLM requests through [OpenRouter](https://openrouter.ai), giving you access to multiple model providers with a single API key.
 
@@ -67,7 +73,7 @@ A clean pick like **Claude Opus 4.7** is then translated to that provider's nati
 | | `openai/gpt-4o` | Multimodal (text + vision) |
 | | `openai/gpt-4o-mini` | Cheapest OpenAI option |
 | **Anthropic** | `anthropic/claude-fable-5.1` | Most capable, 1M context |
-| | `anthropic/claude-opus-5.5` | Default — high capability, 1M context |
+| | `anthropic/claude-opus-5.5` | Optional high-capability model, 1M context |
 | | `anthropic/claude-sonnet-5` | Near Opus quality at lower cost |
 | | `anthropic/claude-opus-4.6` | Previous generation flagship |
 | | `anthropic/claude-sonnet-4.6` | Previous generation balanced |
@@ -99,7 +105,7 @@ Model names use the `provider/model` format. New models from each provider are g
 
 ## Provider Setup
 
-### OpenRouter (Recommended for Getting Started)
+### OpenRouter (optional gateway)
 
 The easiest way to get started. One API key gives you access to models from OpenAI, Anthropic, Google, Meta, and more.
 
@@ -279,17 +285,17 @@ Background RCA uses the single-agent path by default (`ORCHESTRATOR_ENABLED=fals
 
 ### Single-agent RCA (default)
 
-By default, Aurora uses `anthropic/claude-haiku-5.5` for background Root Cause Analysis. You can change this to any supported provider/model.
+This fork uses `openai/gpt-6.2-sol` for background Root Cause Analysis by default. You can change this to any supported provider/model.
 
 ```bash
 # Format: provider/model-name
-RCA_MODEL=anthropic/claude-haiku-5.5
+RCA_MODEL=openai/gpt-6.2-sol
 ```
 
 **Examples:**
 
 ```bash
-# Anthropic (default)
+# Anthropic (explicit override)
 RCA_MODEL=anthropic/claude-haiku-5.5
 
 # OpenAI
@@ -308,18 +314,17 @@ RCA_MODEL=ollama/llama3.1
 RCA_MODEL=bedrock/us.anthropic.claude-haiku-5-5
 ```
 
-When `RCA_MODEL` is not set, the default depends on `RCA_OPTIMIZE_COSTS`:
-- `RCA_OPTIMIZE_COSTS=true` (default): Uses `anthropic/claude-haiku-5.5`
-- `RCA_OPTIMIZE_COSTS=false`: Uses `anthropic/claude-opus-5.5`
+When `RCA_MODEL` is not set, this fork uses `openai/gpt-6.2-sol`.
+The legacy `RCA_OPTIMIZE_COSTS` switch no longer changes that selection.
 
 ### Multi-agent orchestrator
 
-Opt-in via `ORCHESTRATOR_ENABLED=true`. A lead orchestrator triages each incident and may fan out parallel read-only sub-agents. When enabled, `RCA_MODEL` is bypassed and two additional models are required:
+Opt-in via `ORCHESTRATOR_ENABLED=true`. A lead orchestrator triages each incident and may fan out parallel read-only sub-agents. When enabled, `RCA_MODEL` is bypassed and two additional model roles are used:
 
 ```bash
 ORCHESTRATOR_ENABLED=true
-RCA_ORCHESTRATOR_MODEL=anthropic/claude-opus-4.7   # * triage + synthesis
-RCA_SUBAGENT_MODEL=anthropic/claude-sonnet-4.6     # * sub-agent investigators
+RCA_ORCHESTRATOR_MODEL=openai/gpt-6.2-sol   # * triage + synthesis
+RCA_SUBAGENT_MODEL=openai/gpt-6.1-terra     # * sub-agent investigators
 ```
 
 The split exists because triage/synthesis needs reliable structured-output JSON while sub-agents need reliable tool-calling. Per-role overrides are supported — set `model:` in the frontmatter of `server/chat/backend/agent/orchestrator/roles/*.md`.
@@ -334,7 +339,7 @@ LLM costs depend on:
 
 ### Cost Optimization
 
-1. Set `RCA_OPTIMIZE_COSTS=true` to use cheaper models for background RCA
+1. Use `OPENAI_REASONING_EFFORT=low` and select the appropriate `RCA_MODEL` explicitly
 2. Use OpenRouter for flexible, pay-per-token pricing
 3. Use Ollama for zero API costs (requires local GPU)
 
@@ -354,8 +359,8 @@ The safety judge model can be any provider supported above. A fast, cheap, **non
 The Next Steps recommender polishes suggestion descriptions and summaries with a separate, lightweight model.
 
 ```bash
-# Defaults to anthropic/claude-haiku-5.5 when unset.
-ENRICHMENT_MODEL=anthropic/claude-haiku-5.5
+# Defaults to openai/gpt-6-luna when unset.
+ENRICHMENT_MODEL=openai/gpt-6-luna
 ```
 
 This is light text-formatting work (turning validated fixes into readable descriptions), so a small, cheap model is recommended. Same `provider/model` format as `MAIN_MODEL`.
@@ -367,12 +372,12 @@ On every turn Aurora asks a model which memories to inject. That call has about 
 ```bash
 # Optional. Same provider/model format as MAIN_MODEL.
 # Unset: Gemini 3.5 Flash-Lite on Google/OpenRouter/Vertex, Haiku 5.5 on
-# Anthropic and on LLM_PROVIDER_MODE=bedrock, GPT-5.6 Luna on OpenAI.
+# Anthropic and on LLM_PROVIDER_MODE=bedrock, GPT-6 Luna on OpenAI.
 # Ollama uses MAIN_MODEL when that id is ollama/<installed-model>.
 # Bedrock gateway (LLM_PROVIDER_MODE=direct and MAIN_MODEL=bedrock/<id>)
 # stays on that gateway id. Pin a fast one explicitly:
 # MEMORY_SELECTOR_MODEL=bedrock/us.anthropic.claude-haiku-5-5
-MEMORY_SELECTOR_MODEL=google/gemini-3.5-flash-lite
+MEMORY_SELECTOR_MODEL=openai/gpt-6-luna
 ```
 
 Use a small model. Flash-Lite still thinks at its minimum setting, so the selector leaves room in the output cap for those tokens plus the JSON. The selector also ranks the bank down to 100 candidates before the call, so a few hundred memories still fit in the window.

@@ -4,8 +4,20 @@ import importlib.util
 import os
 import sys
 import types
+import json
 
 import pytest
+
+try:
+    import httpx
+    from langchain_openai import ChatOpenAI as RealChatOpenAI
+except ImportError:
+    RealChatOpenAI = None
+
+_SDK_MODULES = {name: sys.modules.get(name) for name in (
+    "langchain_openai", "langchain_core", "langchain_core.language_models",
+    "langchain_core.language_models.chat_models",
+)}
 
 
 _SERVER_DIR = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
@@ -18,6 +30,8 @@ _PROVIDER_PATH = os.path.join(
 def openai_provider_module(monkeypatch):
     """Load the provider with minimal dependency stubs."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    for key in ("OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_DEPLOYMENTS", "OPENAI_REASONING_EFFORT"):
+        monkeypatch.delenv(key, raising=False)
 
     langchain_openai = types.ModuleType("langchain_openai")
     langchain_core = types.ModuleType("langchain_core")
@@ -88,6 +102,105 @@ def test_reasoning_model_uses_responses_api(openai_provider_module):
     assert model.config["model"] == "gpt-5.5"
     assert model.config["streaming"] is True
     assert "reasoning_effort" not in model.config
-    assert model.config["reasoning"] == {"effort": "high", "summary": "auto"}
+    assert model.config["reasoning"] == {"effort": "low", "summary": "auto"}
     assert model.config["use_responses_api"] is True
     assert "temperature" not in model.config
+
+
+def test_azure_deployment_uses_v1_endpoint_and_key(openai_provider_module, monkeypatch):
+    """Azure aliases affect API requests without changing the canonical model ID."""
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.openai.azure.com/openai/v1/")
+    monkeypatch.setenv("OPENAI_API_KEY", "azure-test-key")
+    monkeypatch.setenv("OPENAI_DEPLOYMENTS", '{"gpt-6.1-terra":"prod-terra"}')
+    model = openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-6.1-terra")
+    assert model.config["model"] == "prod-terra"
+    assert model.config["base_url"] == "https://example.openai.azure.com/openai/v1/"
+    assert model.config["api_key"] == "azure-test-key"
+    assert model.config["use_responses_api"] is True
+    assert "temperature" not in model.config
+
+
+@pytest.mark.parametrize("effort", ["none", "low", "medium", "high"])
+def test_terra_reasoning_is_configurable(openai_provider_module, monkeypatch, effort):
+    """Terra honors the operator's reasoning budget."""
+    monkeypatch.setenv("OPENAI_REASONING_EFFORT", effort)
+    model = openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-6.1-terra")
+    assert model.config["reasoning"]["effort"] == effort
+
+
+def test_sol_rejects_none_by_using_its_lowest_effort(openai_provider_module, monkeypatch):
+    """Sol does not accept the none level supported by Luna and Terra."""
+    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "none")
+    model = openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-6.2-sol")
+    assert model.config["reasoning"]["effort"] == "low"
+
+
+def test_invalid_reasoning_configuration_fails_early(openai_provider_module, monkeypatch):
+    """A typo must fail before an API request rather than spend retries."""
+    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "cheap")
+    with pytest.raises(ValueError, match="OPENAI_REASONING_EFFORT"):
+        openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-6.1-terra")
+
+
+def test_guardrail_can_override_reasoning(openai_provider_module):
+    """A utility call can turn reasoning off without changing investigation defaults."""
+    model = openai_provider_module.OpenAIProvider().get_chat_model(
+        "openai/gpt-6-luna", reasoning={"effort": "none"}
+    )
+    assert model.config["reasoning"] == {"effort": "none"}
+
+
+def test_legacy_model_keeps_temperature(openai_provider_module):
+    """Non-reasoning OpenAI models retain their existing API behavior."""
+    model = openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-4.1", temperature=0.2)
+    assert model.config["temperature"] == 0.2
+    assert "reasoning" not in model.config
+
+
+def test_missing_key_fails_before_creating_model(openai_provider_module, monkeypatch):
+    """Both OpenAI and Azure require the operator's resource-specific API key."""
+    monkeypatch.delenv("OPENAI_API_KEY")
+    provider = openai_provider_module.OpenAIProvider()
+    assert not provider.is_available()
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        provider.get_chat_model("openai/gpt-6.1-terra")
+
+
+@pytest.mark.skipif(not isinstance(RealChatOpenAI, type), reason="optional real SDK compatibility test")
+def test_real_sdk_sends_azure_responses_request(openai_provider_module, monkeypatch):
+    """Exercise actual LangChain/OpenAI serialization without network or paid calls."""
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.openai.azure.com/openai/v1/")
+    monkeypatch.setenv("OPENAI_DEPLOYMENTS", '{"gpt-6.1-terra":"prod-terra"}')
+    monkeypatch.setattr(openai_provider_module, "ChatOpenAI", RealChatOpenAI)
+    for name, module in _SDK_MODULES.items():
+        if module is not None:
+            monkeypatch.setitem(sys.modules, name, module)
+    captured = []
+
+    def respond(request):
+        captured.append(request)
+        return httpx.Response(200, json={
+            "id": "resp_test", "object": "response", "created_at": 1,
+            "status": "completed", "model": "gpt-6.1-terra",
+            "output": [{"id": "msg_test", "type": "message", "role": "assistant",
+                        "status": "completed", "content": [{"type": "output_text", "text": "Ready", "annotations": []}]}],
+            "usage": {"input_tokens": 10, "output_tokens": 2, "total_tokens": 12},
+        })
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        llm = openai_provider_module.OpenAIProvider().get_chat_model(
+            "openai/gpt-6.1-terra", http_client=client
+        )
+        llm.bind_tools([{
+            "name": "query_counts", "description": "Read aggregate counts",
+            "parameters": {"type": "object", "properties": {}},
+        }]).invoke("Hello")
+    assert len(captured) == 1
+    assert str(captured[0].url) == "https://example.openai.azure.com/openai/v1/responses"
+    assert captured[0].headers["Authorization"] == "Bearer test-key"
+    payload = json.loads(captured[0].content)
+    assert payload["model"] == "prod-terra"
+    assert payload["reasoning"]["effort"] == "low"
+    assert payload["tools"][0]["name"] == "query_counts"
+    assert payload["tools"][0]["type"] == "function"
+    assert "temperature" not in payload

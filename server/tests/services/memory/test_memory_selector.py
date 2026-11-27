@@ -29,10 +29,10 @@ def test_bedrock_selector_is_haiku_not_rca(monkeypatch):
     assert chosen != "anthropic/claude-opus-5.5"
 
 
-def test_openrouter_selector_is_flash_lite(monkeypatch):
+def test_openrouter_selector_is_openai_luna(monkeypatch):
     _clear_selector_env(monkeypatch)
     monkeypatch.setenv("LLM_PROVIDER_MODE", "openrouter")
-    assert ModelConfig.memory_selector_model() == "google/gemini-3.5-flash-lite"
+    assert ModelConfig.memory_selector_model() == "openai/gpt-6-luna"
 
 
 def test_direct_mode_follows_main_provider(monkeypatch):
@@ -42,7 +42,7 @@ def test_direct_mode_follows_main_provider(monkeypatch):
     assert ModelConfig.memory_selector_model() == "google/gemini-3.5-flash-lite"
 
     monkeypatch.setenv("MAIN_MODEL", "openai/gpt-5.6-sol")
-    assert ModelConfig.memory_selector_model() == "openai/gpt-5.6-luna"
+    assert ModelConfig.memory_selector_model() == "openai/gpt-6-luna"
 
     monkeypatch.setenv("MAIN_MODEL", "anthropic/claude-opus-5.5")
     assert ModelConfig.memory_selector_model() == "anthropic/claude-haiku-5.5"
