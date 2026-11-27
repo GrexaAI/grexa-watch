@@ -95,7 +95,7 @@ def send_google_chat_investigation_started_notification(user_id: str, incident_d
                                 {"decoratedText": {"topLabel": "Status", "text": "In Progress"}},
                                 {
                                     "decoratedText": {
-                                        "text": f"Aurora is analyzing this incident from {source_type}",
+                                        "text": f"Watch is analyzing this incident from {source_type}",
                                     },
                                 },
                             ],
