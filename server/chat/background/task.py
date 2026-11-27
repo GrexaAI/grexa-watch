@@ -2656,16 +2656,15 @@ def _send_response_to_google_chat(
 ) -> bool:
     """Send Aurora's response back to Google Chat after background chat completes.
 
-    Returns True only when a message was actually posted/updated, False on the
+    Returns True only when a message was actually posted, False on the
     early-return paths (no space, no assistant text, no client) so the caller can
-    fall back (resolve the "Thinking…" placeholder) instead of assuming success.
+    send a fallback reply instead of assuming success.
     """
     try:
         from routes.google_chat.google_chat_events_helpers import format_response_for_google_chat
 
         space_name = trigger_metadata.get('space_name')
         thread_key = trigger_metadata.get('thread_key')
-        thinking_message_name = trigger_metadata.get('thinking_message_name')
         source = trigger_metadata.get('source')
 
         if not space_name:
@@ -2720,19 +2719,13 @@ def _send_response_to_google_chat(
             logger.error(f"[BackgroundChat] Could not get Google Chat client for user {user_id}")
             return False
 
-        if thinking_message_name:
-            client.update_message(
-                message_name=thinking_message_name,
-                text=formatted_message
-            )
-        else:
-            client.send_message(
-                space_name=space_name,
-                text=formatted_message,
-                thread_key=thread_key
-            )
+        client.send_message(
+            space_name=space_name,
+            text=formatted_message,
+            thread_key=thread_key,
+        )
 
-        # A message was actually posted/updated.
+        # A message was actually posted.
         return True
 
     except Exception as e:
