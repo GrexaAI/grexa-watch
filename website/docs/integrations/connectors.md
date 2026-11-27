@@ -1020,7 +1020,11 @@ In your project, go to **APIs & Services → Library**, search for "Google Chat 
 
 Go to the [Google Chat API Configuration page](https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat) and set the following. Leave everything else as default.
 
-> **Important:** Uncheck **Build this Chat app as a Workspace add-on** at the top of the page first.
+This fork supports both classic Chat apps and Google Workspace add-ons. If the
+app is already an add-on and the checkbox cannot be cleared, keep it enabled;
+completed conversions are irreversible. Follow the
+[Workspace add-on setup](google-chat-addon) and configure the managed event
+service account identity described there. Classic apps can leave the new setting empty.
 
 **Application info:**
 - **App name:** `Aurora`
@@ -1039,6 +1043,13 @@ Go to the [Google Chat API Configuration page](https://console.cloud.google.com/
   - The exact URL for your deployment is also shown on the Google Chat setup page in Aurora.
 - Set **Authentication Audience** to **HTTP endpoint URL**
 
+For a Workspace add-on, select **Use a common HTTP endpoint URL for all triggers**
+and enter the same events URL. If the configuration offers a separate Card
+Interaction URL for older messages, enter that URL there too. Copy the managed
+**Service account email** from Connection settings into
+`GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL`; it differs from the messaging service
+account whose private key you create in step 4.
+
 > **Local development with ngrok:** Run `ngrok http 3000` (pointing to the frontend, not the backend). Aurora's Next.js server rewrites `/google-chat/events` to the backend automatically. Set `FRONTEND_URL` in `.env` to your ngrok HTTPS URL so that Google Chat card buttons (e.g. "View Investigation") link to a reachable address. The OAuth redirect URI (`http://localhost:5080/google-chat/callback`) does not need ngrok because it's a browser redirect that your local machine can reach directly.
 
 **Visibility:**
@@ -1051,6 +1062,8 @@ Go to the [Google Chat API Configuration page](https://console.cloud.google.com/
 GOOGLE_CHAT_CLIENT_ID=your-client-id
 GOOGLE_CHAT_CLIENT_SECRET=your-client-secret
 GOOGLE_CHAT_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'
+# Workspace add-ons only; blank for classic apps:
+GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL=
 ```
 
 > **Important:** The service account JSON must be on a **single line** in your `.env` file. Convert the downloaded key file with:
@@ -1062,9 +1075,8 @@ GOOGLE_CHAT_SERVICE_ACCOUNT_KEY='{"type":"service_account",...}'
 Then rebuild and restart Aurora:
 
 ```bash
-make down && make dev          # development
-make down && make prod-local   # production (build from source)
-make down && make prod-prebuilt # production (prebuilt images)
+make dev-build    # development (build from source)
+make prod-local   # production (build from this fork)
 ```
 
 #### Troubleshooting
@@ -1075,6 +1087,7 @@ make down && make prod-prebuilt # production (prebuilt images)
 | "Google Chat OAuth credentials not configured" | Set `GOOGLE_CHAT_CLIENT_ID` and `GOOGLE_CHAT_CLIENT_SECRET` in `.env` |
 | "bad_redirect_uri" | Redirect URI must match exactly in Google Cloud Console OAuth settings |
 | Event verification failing | Ensure the Chat app's Authentication Audience is set to **HTTP endpoint URL** and the URL matches your events endpoint |
+| Add-on event verification failing | Set the exact managed `GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL` shown by Google, not your messaging service account. Ensure `NEXT_PUBLIC_BACKEND_URL` is the public HTTPS backend URL. |
 | Messages appear as your name | Set `GOOGLE_CHAT_SERVICE_ACCOUNT_KEY` to enable the Chat app identity |
 | Card buttons do nothing on click | Use **Chrome** — Safari does not reliably handle `openLink` button clicks in Google Chat cards |
 

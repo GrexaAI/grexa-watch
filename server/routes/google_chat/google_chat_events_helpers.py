@@ -5,6 +5,7 @@ Mirrors the Slack events helpers for feature parity.
 
 import html
 import logging
+import os
 import re
 import requests
 from typing import Optional, Tuple
@@ -14,6 +15,7 @@ from datetime import datetime
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from flask import request as flask_request
+from connectors.google_chat_connector.events import chat_card_action
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,9 @@ def verify_google_chat_request(request_data: dict) -> bool:
 
     Uses OIDC ID token verification with the HTTP endpoint URL as the
     audience (Google's recommended approach for custom HTTP endpoints).
-    The audience is derived from NEXT_PUBLIC_BACKEND_URL.
+    The audience is derived from NEXT_PUBLIC_BACKEND_URL. Add-on deployments pin
+    their managed service account with GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL;
+    classic deployments keep Google's shared Chat identity.
     """
     auth_header = flask_request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -46,6 +50,15 @@ def verify_google_chat_request(request_data: dict) -> bool:
         logger.error("NEXT_PUBLIC_BACKEND_URL not set — cannot verify Google Chat requests")
         return False
 
+    addon_sender = os.getenv("GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL", "").strip()
+    if addon_sender and not re.fullmatch(r"service-[0-9]+@gcp-sa-gsuiteaddons\.iam\.gserviceaccount\.com", addon_sender):
+        logger.error("Invalid Google Chat add-on service account configuration")
+        return False
+    if "chat" in request_data and not addon_sender:
+        logger.error("Configure GOOGLE_CHAT_ADDON_SERVICE_ACCOUNT_EMAIL for add-on events")
+        return False
+    expected_sender = addon_sender or "chat@system.gserviceaccount.com"
+
     bearer_token = auth_header[7:]
     try:
         token = id_token.verify_oauth2_token(
@@ -53,12 +66,12 @@ def verify_google_chat_request(request_data: dict) -> bool:
             google_requests.Request(),
             audience=events_url,
         )
-        if token.get("email") != "chat@system.gserviceaccount.com":
+        if token.get("email") != expected_sender or token.get("email_verified") is not True:
             logger.warning("Google Chat JWT email mismatch: %s", _mask_email(token.get("email", "")))
             return False
         return True
-    except Exception as e:
-        logger.warning(f"Google Chat OIDC verification failed: {e}")
+    except Exception:
+        logger.warning("Google Chat OIDC verification failed")
         return False
 
 
@@ -518,13 +531,12 @@ def build_suggestion_cards(incident_id: str, suggestions: list, max_suggestions:
                             {
                                 "text": "Run",
                                 "onClick": {
-                                    "action": {
-                                        "function": "run_suggestion",
-                                        "parameters": [
+                                    "action": chat_card_action(
+                                        "run_suggestion", [
                                             {"key": "incident_id", "value": str(incident_id)},
                                             {"key": "suggestion_id", "value": str(suggestion["id"])},
                                         ],
-                                    },
+                                    ),
                                 },
                                 "color": {
                                     "red": 0.13, "green": 0.59, "blue": 0.95, "alpha": 1,
@@ -533,13 +545,12 @@ def build_suggestion_cards(incident_id: str, suggestions: list, max_suggestions:
                             {
                                 "text": "More details",
                                 "onClick": {
-                                    "action": {
-                                        "function": "suggestion_details",
-                                        "parameters": [
+                                    "action": chat_card_action(
+                                        "suggestion_details", [
                                             {"key": "incident_id", "value": str(incident_id)},
                                             {"key": "suggestion_id", "value": str(suggestion["id"])},
                                         ],
-                                    },
+                                    ),
                                 },
                             },
                         ],

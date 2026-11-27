@@ -7,7 +7,8 @@ Event types: MESSAGE, CARD_CLICKED, ADDED_TO_SPACE, REMOVED_FROM_SPACE.
 """
 
 import logging
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, make_response
+from connectors.google_chat_connector.events import normalize_chat_event
 from connectors.google_chat_connector.client import get_chat_app_client
 from utils.db.connection_pool import db_pool
 from utils.auth.enforcer import get_user_roles_in_org
@@ -52,42 +53,58 @@ def google_chat_events():
     Google Chat interaction event endpoint.
     Handles MESSAGE, CARD_CLICKED, ADDED_TO_SPACE, REMOVED_FROM_SPACE.
     """
+    is_addon = False
     try:
         data = request.get_json()
+        if not isinstance(data, dict):
+            return jsonify({"error": "Expected a Google Chat event object"}), 400
 
         if not verify_google_chat_request(data):
             logger.warning("Invalid Google Chat request")
             return jsonify({"error": "Invalid request"}), 403
 
+        is_addon = "chat" in data
+        try:
+            data = normalize_chat_event(data)
+        except ValueError:
+            logger.warning("Invalid Google Chat event payload")
+            return jsonify({"error": "Invalid event payload"}), 400
         event_type = data.get("type")
 
         if event_type == "ADDED_TO_SPACE":
             space = data.get("space", {})
             space_type = space.get("spaceType", "")
             if space_type == "SPACE":
-                return jsonify({
+                response = jsonify({
                     "text": (
                         "Thanks for adding me! I'm Aurora, your AI SRE assistant.\n\n"
                         "Mention @Aurora in any message to ask me questions about "
                         "your infrastructure, incidents, or anything else!"
                     ),
                 })
-            return jsonify({"text": "Hi! I'm Aurora, your AI SRE assistant."})
-
-        if event_type == "REMOVED_FROM_SPACE":
-            return jsonify({})
-
-        if event_type == "MESSAGE":
-            return _handle_message(data)
-
-        if event_type == "CARD_CLICKED":
-            return _handle_card_clicked(data)
-
-        return jsonify({})
+            else:
+                response = jsonify({"text": "Hi! I'm Aurora, your AI SRE assistant."})
+        elif event_type == "MESSAGE":
+            response = _handle_message(data)
+        elif event_type == "CARD_CLICKED":
+            response = _handle_card_clicked(data)
+        else:
+            response = jsonify({})
 
     except Exception as e:
         logger.error(f"Error handling Google Chat event: {e}", exc_info=True)
-        return jsonify({"text": "Sorry, something went wrong."})
+        response = jsonify({"text": "Sorry, something went wrong."})
+
+    response = make_response(response)
+    if is_addon and response.status_code == 200:
+        body = response.get_json(silent=True) or {}
+        if body.get("text"):
+            response = jsonify({
+                "hostAppDataAction": {
+                    "chatDataAction": {"createMessageAction": {"message": body}},
+                },
+            })
+    return response
 
 
 def _handle_message(data: dict):
