@@ -38,7 +38,7 @@ class ModelConfig:
     Change these values to switch providers across the entire application.
     """
     
-    _DEFAULT_MODEL = "openai/gpt-6.2-sol"
+    _DEFAULT_MODEL = "openai/gpt-6.1-terra"
     _SMALL_MODEL = "openai/gpt-6-luna"
 
     MAIN_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL

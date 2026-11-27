@@ -134,7 +134,6 @@ def test_no_priced_anthropic_or_openai_model_is_hidden(picker_ids):
 # Current-generation ids this PR introduced. Deliberately explicit: MODEL_PRICING also
 # holds legacy rows kept for costing historical usage, which must NOT be in the picker.
 _CURRENT_GENERATION = {
-    "openai/gpt-6.2-sol",
     "openai/gpt-6.1-terra",
     "openai/gpt-6-luna",
 }
@@ -157,7 +156,7 @@ def test_default_model_is_fully_registered():
 
 
 def test_fork_picker_contains_only_recommended_openai_models(picker_ids):
-    """Historical provider/pricing entries remain, but the fork exposes three models."""
+    """Historical provider/pricing entries remain, but the fork exposes two models."""
     assert set(picker_ids) == _CURRENT_GENERATION
 
 
@@ -172,6 +171,10 @@ def test_all_default_model_roles_are_registered_openai_models():
     )
     for role in roles:
         assert getattr(ModelConfig, role) in _CURRENT_GENERATION, role
+    for role in ("MAIN_MODEL", "RCA_MODEL", "RCA_ORCHESTRATOR_MODEL", "RCA_SUBAGENT_MODEL", "VISION_MODEL"):
+        assert getattr(ModelConfig, role) == "openai/gpt-6.1-terra", role
+    for role in ("INCIDENT_REPORT_SUMMARIZATION_MODEL", "TOOL_OUTPUT_SUMMARIZATION_MODEL", "EMAIL_REPORT_MODEL", "SUGGESTION_MODEL"):
+        assert getattr(ModelConfig, role) == "openai/gpt-6-luna", role
     assert ModelConfig.memory_selector_model() == "openai/gpt-6-luna"
 
 
@@ -225,7 +228,6 @@ def test_gpt56_cutoffs_match_openai_published_date():
 # Anthropic and Google publish two numbers for some models; we pin the one the code
 # uses so a future bump has to be deliberate.
 _PUBLISHED_CUTOFFS = {
-    "openai/gpt-6.2-sol": (2026, 6, 1),
     "openai/gpt-6.1-terra": (2026, 6, 1),
     "openai/gpt-6-luna": (2026, 5, 18),
     "openai/gpt-6-astra": (2026, 4, 30),

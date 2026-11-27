@@ -285,11 +285,11 @@ Background RCA uses the single-agent path by default (`ORCHESTRATOR_ENABLED=fals
 
 ### Single-agent RCA (default)
 
-This fork uses `openai/gpt-6.2-sol` for background Root Cause Analysis by default. You can change this to any supported provider/model.
+This fork uses `openai/gpt-6.1-terra` for background Root Cause Analysis by default. You can change this to any supported provider/model.
 
 ```bash
 # Format: provider/model-name
-RCA_MODEL=openai/gpt-6.2-sol
+RCA_MODEL=openai/gpt-6.1-terra
 ```
 
 **Examples:**
@@ -314,7 +314,7 @@ RCA_MODEL=ollama/llama3.1
 RCA_MODEL=bedrock/us.anthropic.claude-haiku-5-5
 ```
 
-When `RCA_MODEL` is not set, this fork uses `openai/gpt-6.2-sol`.
+When `RCA_MODEL` is not set, this fork uses `openai/gpt-6.1-terra`.
 The legacy `RCA_OPTIMIZE_COSTS` switch no longer changes that selection.
 
 ### Multi-agent orchestrator
@@ -323,7 +323,7 @@ Opt-in via `ORCHESTRATOR_ENABLED=true`. A lead orchestrator triages each inciden
 
 ```bash
 ORCHESTRATOR_ENABLED=true
-RCA_ORCHESTRATOR_MODEL=openai/gpt-6.2-sol   # * triage + synthesis
+RCA_ORCHESTRATOR_MODEL=openai/gpt-6.1-terra   # * triage + synthesis
 RCA_SUBAGENT_MODEL=openai/gpt-6.1-terra     # * sub-agent investigators
 ```
 

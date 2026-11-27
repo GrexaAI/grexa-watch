@@ -4,13 +4,12 @@ title: OpenAI and Azure OpenAI
 
 # OpenAI and Azure OpenAI
 
-This fork defaults to three OpenAI models. The chat picker exposes these choices;
+This fork defaults to two OpenAI models. The chat picker exposes these choices;
 historical model mappings and prices remain available for existing sessions.
 
 | Model | Recommended use |
 |---|---|
-| `openai/gpt-6.2-sol` | Chat, code tracing, and root-cause investigations |
-| `openai/gpt-6.1-terra` | Images, visual analysis, and an alternative investigator |
+| `openai/gpt-6.1-terra` | Chat, code tracing, root-cause investigations, and visual analysis |
 | `openai/gpt-6-luna` | Summaries, enrichment, memory selection, and small checks |
 
 These are defaults, not a claim that every API project or Azure region can serve
@@ -23,9 +22,9 @@ set explicitly in `.env.example` and the Helm chart.
 
 | Variable | Default |
 |---|---|
-| `MAIN_MODEL` | `openai/gpt-6.2-sol` |
-| `RCA_MODEL` | `openai/gpt-6.2-sol` |
-| `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.2-sol` |
+| `MAIN_MODEL` | `openai/gpt-6.1-terra` |
+| `RCA_MODEL` | `openai/gpt-6.1-terra` |
+| `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.1-terra` |
 | `RCA_SUBAGENT_MODEL` | `openai/gpt-6.1-terra` |
 | `VISION_MODEL` | `openai/gpt-6.1-terra` |
 | `SUMMARIZATION_MODEL` | `openai/gpt-6-luna` |
@@ -34,6 +33,11 @@ set explicitly in `.env.example` and the Helm chart.
 | `RECURRENCE_AGENT_MODEL` | `openai/gpt-6-luna` |
 | `JIRA_RCA_JUDGE_MODEL` | `openai/gpt-6-luna` |
 | `GUARDRAILS_LLM_MODEL` | `openai/gpt-6-luna` |
+
+`SUMMARIZATION_MODEL` also controls the built-in postmortem-generation action and
+the Jira follow-up that writes up completed investigation findings. Ordinary chat
+uses the selected chat model, including documentation requested in that chat;
+select Luna in the picker for those writing tasks.
 
 Orchestration stays disabled unless `ORCHESTRATOR_ENABLED=true`. Changing model
 roles does not enable it. `RCA_MODEL` now has an explicit default: the legacy
@@ -74,7 +78,7 @@ Neither variable belongs in frontend or `NEXT_PUBLIC_*` configuration.
 LLM_PROVIDER_MODE=direct
 OPENAI_API_KEY=YOUR_AZURE_RESOURCE_KEY
 OPENAI_BASE_URL=https://YOUR_RESOURCE.openai.azure.com/openai/v1/
-OPENAI_DEPLOYMENTS='{"gpt-6.2-sol":"investigate","gpt-6.1-terra":"visual","gpt-6-luna":"utility"}'
+OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility"}'
 OPENAI_REASONING_EFFORT=low
 ```
 
@@ -89,7 +93,7 @@ If enabling embeddings, add the embedding deployment to the same JSON object:
 
 ```dotenv
 EMBEDDING_MODEL=openai/text-embedding-3-small
-OPENAI_DEPLOYMENTS='{"gpt-6.2-sol":"investigate","gpt-6.1-terra":"visual","gpt-6-luna":"utility","text-embedding-3-small":"embeddings"}'
+OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility","text-embedding-3-small":"embeddings"}'
 ```
 
 This configuration uses API keys. Microsoft Entra token refresh/managed identity
@@ -102,12 +106,14 @@ existing-secret integration. Never put API keys in a ConfigMap.
 ## Cost controls and estimates
 
 `OPENAI_REASONING_EFFORT` defaults to `low`, replacing the previous forced `high`.
-Use `medium` or `high` only when the task needs more reasoning. Sol requires at
-least `low`; `none`/`minimal` are raised to `low` for Sol. Guardrails remain enabled
-and use the smallest supported reasoning setting for their configured model.
+Use `low` for normal investigations and documentation. Try `medium` for a difficult
+investigation that misses important connections at `low`; reserve `high` for an
+exceptional case. Higher effort can increase reasoning-token usage and cost.
+Guardrails remain enabled and use `none` on Luna for their small classification task.
+The global effort setting applies to Terra and Luna; it does not enforce a dollar budget.
 
 Prices shown in the picker and usage tracker are estimates based on OpenAI
-Standard rates, including cache-read and long-context tiers for the three new
+Standard rates, including cache-read and long-context tiers for the two new
 models. They are not Azure billing quotes. Azure region, deployment type, caching,
 and your contract can change the actual bill. Compare with the provider invoice.
 These settings do not enforce a per-investigation dollar budget.
@@ -129,7 +135,7 @@ replaces these builds. Recreate application containers after changing `.env`;
 restarting alone does not apply new container environment values.
 
 After deployment, hard-refresh the browser and start a new chat. Check that only
-the three OpenAI models appear. Test a short message, a bounded read-only tool
+the two OpenAI models appear. Test a short message, a bounded read-only tool
 call, and one background investigation; check the provider dashboard for the
 deployment used and actual usage. Automated tests exercise Azure request routing
 with a mock HTTP transport and do not prove access to your live Azure deployments.

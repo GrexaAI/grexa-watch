@@ -43,7 +43,6 @@ class LLMUsageTracker:
 
     MODEL_PRICING = {
         # OpenAI (direct API pricing per 1K tokens)
-        "openai/gpt-6.2-sol": {"input": 0.002, "output": 0.01, "cached_input": 0.0001, "cache_write": 0.0025},
         "openai/gpt-6.1-terra": {"input": 0.001, "output": 0.005, "cached_input": 5e-05, "cache_write": 0.00125},
         "openai/gpt-6-luna": {"input": 0.0001, "output": 0.0005, "cached_input": 1e-05, "cache_write": 0.000125},
         # cached_input = automatic prompt caching discount
@@ -341,7 +340,7 @@ class LLMUsageTracker:
 
             # Standard OpenAI rates increase above the long-context threshold.
             if using_static_pricing and model_name in {
-                "openai/gpt-6.2-sol", "openai/gpt-6.1-terra", "openai/gpt-6-luna"
+                "openai/gpt-6.1-terra", "openai/gpt-6-luna"
             } and input_tokens > 272_000:
                 pricing = {key: rate * (1.5 if key == "output" else 2) for key, rate in pricing.items()}
 

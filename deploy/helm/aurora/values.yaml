@@ -364,8 +364,8 @@ config:
   # JSON mapping native model IDs to Azure deployment names, including embeddings.
   OPENAI_DEPLOYMENTS: ""
   OPENAI_REASONING_EFFORT: "low"
-  MAIN_MODEL: "openai/gpt-6.2-sol"
-  RCA_MODEL: "openai/gpt-6.2-sol"
+  MAIN_MODEL: "openai/gpt-6.1-terra"
+  RCA_MODEL: "openai/gpt-6.1-terra"
   VISION_MODEL: "openai/gpt-6.1-terra"
   AGENT_RECURSION_LIMIT: "240" #Maximum number of steps an agent can take
   # Wall-clock limit for one investigation, in seconds. Default is one hour.
@@ -449,7 +449,7 @@ config:
   # Infrastructure visualization LLM extraction (disabled for cost; see cost-optimization design doc).
   VISUALIZATION_ENABLED: "false"
   # * Only when ORCHESTRATOR_ENABLED=true — triage + synthesis brain.
-  RCA_ORCHESTRATOR_MODEL: "openai/gpt-6.2-sol"
+  RCA_ORCHESTRATOR_MODEL: "openai/gpt-6.1-terra"
   # * Only when ORCHESTRATOR_ENABLED=true — sub-agent investigator model.
   RCA_SUBAGENT_MODEL: "openai/gpt-6.1-terra"
   # Lightweight model for mechanical summarization (tool-output capping, alert/repo summaries). Empty = the small OpenAI default.

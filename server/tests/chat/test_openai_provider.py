@@ -128,13 +128,6 @@ def test_terra_reasoning_is_configurable(openai_provider_module, monkeypatch, ef
     assert model.config["reasoning"]["effort"] == effort
 
 
-def test_sol_rejects_none_by_using_its_lowest_effort(openai_provider_module, monkeypatch):
-    """Sol does not accept the none level supported by Luna and Terra."""
-    monkeypatch.setenv("OPENAI_REASONING_EFFORT", "none")
-    model = openai_provider_module.OpenAIProvider().get_chat_model("openai/gpt-6.2-sol")
-    assert model.config["reasoning"]["effort"] == "low"
-
-
 def test_invalid_reasoning_configuration_fails_early(openai_provider_module, monkeypatch):
     """A typo must fail before an API request rather than spend retries."""
     monkeypatch.setenv("OPENAI_REASONING_EFFORT", "cheap")

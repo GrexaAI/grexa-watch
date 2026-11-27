@@ -39,7 +39,6 @@ interface ModelSelectorProps {
 
 // Pricing information mapping (input/output per 1M tokens)
 const modelPricing: Record<string, string> = {
-  'openai/gpt-6.2-sol': '$2 input / $10 output per 1M tokens (OpenAI Standard estimate)',
   'openai/gpt-6.1-terra': '$1 input / $5 output per 1M tokens (OpenAI Standard estimate)',
   'openai/gpt-6-luna': '$0.1 input / $0.5 output per 1M tokens (OpenAI Standard estimate)',
 };
@@ -59,7 +58,6 @@ const providerLabels: Record<string, string> = {
 // 1M context / reasoning defaults are derived from the id below, so adding a model
 // stays a one-liner instead of another near-identical object literal.
 const modelCatalog: Array<[string, string, ModelTier, ModelOverrides?]> = [
-  ['openai/gpt-6.2-sol', 'GPT-6.2 Sol', 'pro'],
   ['openai/gpt-6.1-terra', 'GPT-6.1 Terra', 'pro'],
   ['openai/gpt-6-luna', 'GPT-6 Luna', 'free'],
 ];

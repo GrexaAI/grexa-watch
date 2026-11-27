@@ -78,8 +78,6 @@ class OpenAIProvider(BaseLLMProvider):
             if effort not in {"none", "minimal", "low", "medium", "high", "xhigh", "max"}:
                 logger.error("Invalid OpenAI reasoning effort configuration")
                 raise ValueError("Invalid OPENAI_REASONING_EFFORT")
-            if native_model.startswith("gpt-6.2-sol") and effort in {"none", "minimal"}:
-                effort = "low"
             # Legacy reasoning models reject the newer low/none levels.
             if native_model.startswith("gpt-5-pro"):
                 effort = "high"

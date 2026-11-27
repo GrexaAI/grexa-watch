@@ -71,7 +71,7 @@ export function useChatSendHandlers({
   const { toast } = useToast();
   const { providerIds, isProviderConnected } = useConnectedAccounts();
 
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-6.2-sol");
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-6.1-terra");
   const [selectedMode, setSelectedMode] = useState("agent");
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);

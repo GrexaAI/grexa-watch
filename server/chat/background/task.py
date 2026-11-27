@@ -1472,7 +1472,7 @@ async def _run_jira_action(
         selected_project_id=None,
         messages=[HumanMessage(content=followup_text)],
         question=followup_text,
-        model=ModelConfig.RCA_MODEL,
+        model=ModelConfig.INCIDENT_REPORT_SUMMARIZATION_MODEL,
         mode=mode,
         is_background=True,
         rca_context=rca_context,
@@ -1644,7 +1644,7 @@ async def _execute_background_chat(
         )
 
         # Create state with is_background=True and rca_context for system prompt
-        # Use centralized model configuration for RCA with provider mode awareness
+        # Postmortems document the findings; investigations retain the RCA model.
         _is_pr_review = _tm_source == "change_gating"
 
         state = State(
@@ -1656,7 +1656,10 @@ async def _execute_background_chat(
             selected_project_id=None,
             messages=[human_message],
             question=rail_question,
-            model=ModelConfig.RCA_MODEL,
+            model=(
+                ModelConfig.INCIDENT_REPORT_SUMMARIZATION_MODEL
+                if _is_postmortem_action else ModelConfig.RCA_MODEL
+            ),
             mode=mode,
             is_background=True,
             is_postmortem_action=_is_postmortem_action,

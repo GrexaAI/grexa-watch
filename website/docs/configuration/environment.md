@@ -329,12 +329,12 @@ See [the complete model-role defaults](./openai-azure.md#model-roles), including
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RCA_MODEL` | `openai/gpt-6.2-sol` | Model for background RCA; used when `ORCHESTRATOR_ENABLED=false`. |
+| `RCA_MODEL` | `openai/gpt-6.1-terra` | Model for background RCA; used when `ORCHESTRATOR_ENABLED=false`. |
 | `MEMORY_SELECTOR_MODEL` | _(provider fast model)_ | Model that picks which memories to inject. It has about 6 seconds. The loader used to return only the newest 200 memories. Unset uses a fast model the active provider can serve: Gemini 3.5 Flash-Lite (Google/OpenRouter/Vertex), Haiku 5.5 (Anthropic and `LLM_PROVIDER_MODE=bedrock`), or GPT-6 Luna (OpenAI). Ollama uses `MAIN_MODEL` when that id is `ollama/...`. A Bedrock gateway (`direct` mode, `MAIN_MODEL=bedrock/<id>`) stays on that id; pin a fast one with `bedrock/<id>`. |
 | `JIRA_RCA_JUDGE_MODEL` | `openai/gpt-6-luna` | Yes/no model for Jira automatic RCA. |
 | `RCA_OPTIMIZE_COSTS` | Legacy | No longer selects the investigator in this fork; set `RCA_MODEL` explicitly. |
 | `ORCHESTRATOR_ENABLED` | `false` | Multi-agent RCA orchestrator (opt-in). When `true`, a lead orchestrator triages each background RCA and may fan out parallel read-only sub-agents; `RCA_MODEL` is ignored. When `false` (default), RCA uses the single-agent path with `RCA_MODEL`. |
-| `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.2-sol` | *Only when `ORCHESTRATOR_ENABLED=true`.* Brain model for triage + synthesis. Format: `provider/model`. |
+| `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.1-terra` | *Only when `ORCHESTRATOR_ENABLED=true`.* Brain model for triage + synthesis. Format: `provider/model`. |
 | `RCA_SUBAGENT_MODEL` | `openai/gpt-6.1-terra` | *Only when `ORCHESTRATOR_ENABLED=true`.* Sub-agent investigator model. Per-role overrides in `orchestrator/roles/*.md` frontmatter take precedence. Format: `provider/model`. |
 | `GEMINI_DISABLE_THINKING` | - | Disable Gemini thinking mode |
 
