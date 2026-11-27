@@ -77,8 +77,8 @@ def google_chat_events():
             if space_type == "SPACE":
                 response = jsonify({
                     "text": (
-                        "Thanks for adding me! I'm Aurora, your AI SRE assistant.\n\n"
-                        "Mention @Aurora in any message to ask me questions about "
+                        "Thanks for adding me! I'm Watch, your AI SRE assistant.\n\n"
+                        "Mention @watch in any message to ask me questions about "
                         "your infrastructure, incidents, or anything else!"
                     ),
                 })
@@ -162,7 +162,7 @@ def _handle_message(data: dict):
                     'What\'s going on?"'
                 )
             else:
-                response_text = "Rukja dekh raha hu maine"
+                response_text = "Rukja dekh raha hu maine...🤨"
                 trigger_background = True
 
             if response_text:
