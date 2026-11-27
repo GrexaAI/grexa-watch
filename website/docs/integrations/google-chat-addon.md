@@ -57,6 +57,21 @@ Ongoing messages still use `chat.bot`. This fork also requests
 administrator approval through the Marketplace app setup. Changing the webhook
 format does not grant that approval or change Aurora user/organization permissions.
 
+### Alert and thread context
+
+When you reply to an alert with `@watch investigate this`, Aurora requests history
+for that exact thread. It includes the original message and up to nine recent
+replies, removes duplicates, and presents them chronologically. This uses at most
+two history requests rather than scanning unrelated space messages. It does not
+load every reply in a long thread.
+
+Context includes plain text plus visible titles, labels, paragraphs, and HTTP(S)
+links from legacy `cards` and `cardsV2`, including Grafana alert cards. Card HTML
+is converted to text, and the original sender name is preserved. Card actions and
+hidden parameters are excluded; buttons are never executed while reading context.
+Existing message and total context limits still apply. Missing history permission
+leaves the investigation without previous-message context.
+
 ## Verify
 
 Connect through **Connectors > Google Chat**. Use a registered Aurora admin/editor

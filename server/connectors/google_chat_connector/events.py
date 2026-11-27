@@ -2,10 +2,80 @@
 
 import logging
 import os
+import re
+
+from bs4 import BeautifulSoup
 
 from utils.web.public_url import external_backend_url
 
 logger = logging.getLogger(__name__)
+
+
+def extract_message_text(message: dict, max_length: int = 50000) -> str:
+    """Read visible text and HTTP links from messages and legacy/v2 alert cards.
+
+    Card actions, parameters and form values are deliberately excluded. Returned
+    content is conversation data, never an instruction to execute a card action.
+    """
+    parts = []
+    remaining = max(max_length, 0)
+    nodes_left = 1000
+
+    def add(value):
+        nonlocal remaining
+        if not isinstance(value, str) or remaining <= 0:
+            return
+        value = value[:remaining]
+        if re.search(r"</?[A-Za-z][^>]*>", value):
+            soup = BeautifulSoup(value, "html.parser")
+            for tag in soup(["script", "style"]):
+                tag.decompose()
+            for anchor in soup.find_all("a", href=True):
+                url = anchor["href"]
+                if url.lower().startswith(("http://", "https://")):
+                    anchor.replace_with(f"{anchor.get_text()} ({url})")
+            for br in soup.find_all("br"):
+                br.replace_with("\n")
+            value = soup.get_text()
+        value = value.strip()[:remaining]
+        if value:
+            parts.append(value)
+            remaining -= len(value) + 1
+
+    def walk(node, depth=0):
+        nonlocal nodes_left
+        if depth > 16 or nodes_left <= 0 or remaining <= 0:
+            return
+        nodes_left -= 1
+        if isinstance(node, list):
+            for item in node:
+                walk(item, depth + 1)
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                if key in ("title", "subtitle", "text", "topLabel", "bottomLabel", "content", "altText"):
+                    add(value)
+                elif key == "openLink" and isinstance(value, dict):
+                    url = value.get("url")
+                    if isinstance(url, str) and url.lower().startswith(("http://", "https://")):
+                        add(url)
+                elif key in (
+                    "header", "sections", "widgets", "textParagraph", "decoratedText",
+                    "keyValue", "buttons", "buttonList", "textButton", "onClick",
+                    "fixedFooter", "primaryButton", "secondaryButton", "columns",
+                    "columnItems", "uncollapsibleWidgets",
+                ):
+                    walk(value, depth + 1)
+
+    add(message.get("text") or message.get("formattedText"))
+    walk(message.get("cards", []))
+    cards_v2 = message.get("cardsV2", [])
+    if isinstance(cards_v2, list):
+        for entry in cards_v2:
+            if isinstance(entry, dict):
+                walk(entry.get("card"))
+    if not parts:
+        add(message.get("fallbackText"))
+    return "\n".join(parts)[:max(max_length, 0)]
 
 
 def normalize_chat_event(event: dict) -> dict:

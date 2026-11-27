@@ -12,6 +12,7 @@ Hybrid auth model:
 import logging
 import os
 import json
+import re
 import threading
 import requests
 from typing import Dict, Any, List, Optional
@@ -209,9 +210,14 @@ class GoogleChatClient:
 
     def list_messages(
         self, space_name: str, page_size: int = 25, order_by: str = "createTime desc",
+        thread_name: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """List recent messages in a space."""
         params = {"pageSize": page_size, "orderBy": order_by}
+        if thread_name is not None:
+            if not re.fullmatch(re.escape(space_name) + r"/threads/[A-Za-z0-9_-]+", thread_name):
+                raise ValueError("Thread must belong to the requested Google Chat space")
+            params["filter"] = f"thread.name = {thread_name}"
         result = self._request("GET", f"{space_name}/messages", params=params)
         return result.get("messages", [])
 
