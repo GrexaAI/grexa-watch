@@ -24,6 +24,7 @@ _OR_CLAUDE_FABLE_5_1 = "anthropic/claude-fable-5.1"
 
 # Model name mappings from OpenRouter format to native provider formats
 MODEL_MAPPINGS = {
+    "openai/gpt-6.1-sol": {"openrouter": "openai/gpt-6.1-sol", "openai": "gpt-6.1-sol", "provider": "openai"},
     "openai/gpt-6.1-terra": {"openrouter": "openai/gpt-6.1-terra", "openai": "gpt-6.1-terra", "provider": "openai"},
     "openai/gpt-6-luna": {"openrouter": "openai/gpt-6-luna", "openai": "gpt-6-luna", "provider": "openai"},
     "openai/gpt-6-astra": {

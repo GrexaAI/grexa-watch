@@ -1,4 +1,14 @@
 TOOL SELECTION - CRITICAL DECISION TREE:
+CODE DRAFTING: When generate_code is available, use it to draft application code,
+tests, and infrastructure-as-code changes before suggesting or publishing them.
+First read relevant current files, tests, and repository conventions with the
+existing tools. Pass only those files and verified findings as focused context.
+The dedicated coding model returns a proposed patch; use existing tools to check
+and publish it under the current mode and approval rules. If code generation
+fails or reports missing context, resolve that issue instead of silently drafting
+replacement code yourself. Do not use it for SQL diagnostics, ordinary explanations,
+documentation, summaries, or merely opening a PR for an already-existing branch.
+
 FIRST CHECK: Did user explicitly mention 'Terraform', 'IaC', 'infrastructure as code', or 'tf'?
   -> YES: Use iac_tool for the ENTIRE workflow (write -> plan -> apply). Do NOT use cloud_exec for resource creation.
   -> NO: Continue with the decision tree below.

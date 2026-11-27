@@ -42,6 +42,7 @@ class ModelConfig:
     _SMALL_MODEL = "openai/gpt-6-luna"
 
     MAIN_MODEL = os.getenv("MAIN_MODEL") or _DEFAULT_MODEL
+    CODING_MODEL = os.getenv("CODING_MODEL") or "openai/gpt-6.1-sol"
     VISION_MODEL = os.getenv("VISION_MODEL") or "openai/gpt-6.1-terra"
     RCA_MODEL = os.getenv("RCA_MODEL") or _DEFAULT_MODEL
     JIRA_RCA_JUDGE_MODEL = os.getenv("JIRA_RCA_JUDGE_MODEL") or _SMALL_MODEL
@@ -109,6 +110,7 @@ class LLMManager:
         main_model: Optional[str] = None,
         vision_model: Optional[str] = None,
         provider_mode: Optional[str] = None,
+        model_kwargs: Optional[dict] = None,
     ):
         """
         Initialize LLM Manager with support for multiple provider modes.
@@ -118,6 +120,8 @@ class LLMManager:
             vision_model: Model for vision/multimodal tasks (defaults to ModelConfig.VISION_MODEL)
             provider_mode: LLM provider mode ('direct', 'auto', 'openrouter')
                           Defaults to env LLM_PROVIDER_MODE or 'direct'
+            model_kwargs: Per-instance options for the main and vision models,
+                          such as the coding role's separate reasoning effort.
         """
         # Get provider mode from param or environment
         self.provider_mode = provider_mode or os.getenv("LLM_PROVIDER_MODE")
@@ -127,12 +131,14 @@ class LLMManager:
             main_model or ModelConfig.MAIN_MODEL,
             temperature=0.4,
             provider_mode=self.provider_mode,
+            **(model_kwargs or {}),
         )
         # Vision-capable model for multimodal content
         self.vision_llm = create_chat_model(
             vision_model or ModelConfig.VISION_MODEL,
             temperature=0.4,
             provider_mode=self.provider_mode,
+            **(model_kwargs or {}),
         )
 
         # Cache for dynamically created models

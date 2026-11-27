@@ -11,11 +11,12 @@ tools:
   - get_connected_repos
   - github_rca
   - github_fix
+  - generate_code
   - github_apply_fix
   - github_commit
 index: "Code repo — discover repos, check deployments/commits/PRs, suggest & apply fixes"
 rca_priority: 2
-allowed-tools: get_connected_repos, github_rca, github_fix, github_apply_fix, github_commit
+allowed-tools: get_connected_repos, github_rca, github_fix, github_apply_fix, github_commit, generate_code
 metadata:
   author: aurora
   version: "1.0"
@@ -35,6 +36,11 @@ Connected account: {username}
 - If only one repo is connected, `github_rca` auto-selects it. If multiple, you MUST pass `repo='owner/repo'`.
 
 ### Tool Usage (use in this order)
+For new code or test changes, read the current source and repository instructions,
+then use `generate_code(task=..., context=...)` to draft the patch with the dedicated
+coding model. Apply its proposal through the existing tools below. Do not call
+code generation just to open a PR for changes that already exist in a branch.
+
 1. `get_connected_repos` — Discover available repos + descriptions. Always call first.
 2. `github_rca(repo='owner/repo', action=...)` — Investigate code changes for RCA:
    - `deployment_check` — GitHub Actions workflow runs (failures, suspicious timing)

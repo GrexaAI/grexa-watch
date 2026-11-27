@@ -4,13 +4,15 @@ title: OpenAI and Azure OpenAI
 
 # OpenAI and Azure OpenAI
 
-This fork defaults to two OpenAI models. The chat picker exposes these choices;
+This fork uses Terra for investigations, Luna for summaries, and Sol for the
+dedicated code-drafting tool. The chat picker still exposes only Terra and Luna;
 historical model mappings and prices remain available for existing sessions.
 
 | Model | Recommended use |
 |---|---|
 | `openai/gpt-6.1-terra` | Chat, code tracing, root-cause investigations, and visual analysis |
 | `openai/gpt-6-luna` | Summaries, enrichment, memory selection, and small checks |
+| `openai/gpt-6.1-sol` | Drafting code, tests, and infrastructure-as-code patches via `generate_code` |
 
 These are defaults, not a claim that every API project or Azure region can serve
 every model. Confirm access before enabling automatic investigations.
@@ -23,6 +25,7 @@ set explicitly in `.env.example` and the Helm chart.
 | Variable | Default |
 |---|---|
 | `MAIN_MODEL` | `openai/gpt-6.1-terra` |
+| `CODING_MODEL` | `openai/gpt-6.1-sol` |
 | `RCA_MODEL` | `openai/gpt-6.1-terra` |
 | `RCA_ORCHESTRATOR_MODEL` | `openai/gpt-6.1-terra` |
 | `RCA_SUBAGENT_MODEL` | `openai/gpt-6.1-terra` |
@@ -38,6 +41,21 @@ set explicitly in `.env.example` and the Helm chart.
 the Jira follow-up that writes up completed investigation findings. Ordinary chat
 uses the selected chat model, including documentation requested in that chat;
 select Luna in the picker for those writing tasks.
+
+Before drafting code changes, the investigator is instructed to read the relevant
+files and call `generate_code` with a focused task and source context. That tool
+uses Sol with `CODING_REASONING_EFFORT=medium`; its per-instance reasoning setting
+does not change Terra/Luna's global `OPENAI_REASONING_EFFORT=low`. The draft is
+returned to the investigator, which uses the existing validation and PR tools.
+Publishing still requires the appropriate mode, permissions, and approvals.
+
+This handoff is driven by tool instructions; it is not an automatic model switch
+inside every GitHub write endpoint. Sol does not run commands or publish changes,
+and failures do not silently fall back to Terra. The code call receives at most
+8000 task characters and 60000 source-context characters, with an output limit
+of 12000 tokens. Its usage is tracked under `code_generation` in the same session.
+Incomplete or oversized proposals are rejected instead of being returned as
+partial code or sent through tool-output summarization. Retry with a smaller patch.
 
 Orchestration stays disabled unless `ORCHESTRATOR_ENABLED=true`. Changing model
 roles does not enable it. `RCA_MODEL` now has an explicit default: the legacy
@@ -78,7 +96,7 @@ Neither variable belongs in frontend or `NEXT_PUBLIC_*` configuration.
 LLM_PROVIDER_MODE=direct
 OPENAI_API_KEY=YOUR_AZURE_RESOURCE_KEY
 OPENAI_BASE_URL=https://YOUR_RESOURCE.openai.azure.com/openai/v1/
-OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility"}'
+OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility","gpt-6.1-sol":"coding"}'
 OPENAI_REASONING_EFFORT=low
 ```
 
@@ -93,7 +111,7 @@ If enabling embeddings, add the embedding deployment to the same JSON object:
 
 ```dotenv
 EMBEDDING_MODEL=openai/text-embedding-3-small
-OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility","text-embedding-3-small":"embeddings"}'
+OPENAI_DEPLOYMENTS='{"gpt-6.1-terra":"investigate","gpt-6-luna":"utility","gpt-6.1-sol":"coding","text-embedding-3-small":"embeddings"}'
 ```
 
 This configuration uses API keys. Microsoft Entra token refresh/managed identity
@@ -113,7 +131,7 @@ Guardrails remain enabled and use `none` on Luna for their small classification 
 The global effort setting applies to Terra and Luna; it does not enforce a dollar budget.
 
 Prices shown in the picker and usage tracker are estimates based on OpenAI
-Standard rates, including cache-read and long-context tiers for the two new
+Standard rates, including cache-read and long-context tiers for these
 models. They are not Azure billing quotes. Azure region, deployment type, caching,
 and your contract can change the actual bill. Compare with the provider invoice.
 These settings do not enforce a per-investigation dollar budget.
